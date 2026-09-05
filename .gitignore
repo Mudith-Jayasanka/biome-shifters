@@ -1,0 +1,15 @@
+# Operating System Files
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.pyc
+
+# Local Saves (keep directory structure)
+saves/*
+!saves/.gitkeep
+
+# Logs and Scratch
+*.log
+scratch/

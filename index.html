@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Biome Shifters — Artificial Life & Dynamic Ecology</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="app-root">
+    <!-- Top HUD Navigation & Stats Bar -->
+    <header id="top-hud">
+      <div class="hud-group hud-branding">
+        <span class="hud-icon">🌍</span>
+        <h1 class="hud-title">Biome Shifters</h1>
+        <span class="hud-badge">v1.0</span>
+      </div>
+
+      <div class="hud-group hud-telemetry">
+        <div class="telemetry-item" title="World Ticks Elapsed">
+          <span class="label">Tick</span>
+          <span class="val mono" id="stat-tick">0</span>
+        </div>
+        <div class="telemetry-divider"></div>
+        <div class="telemetry-item" title="Ticks Per Second (Simulation Speed)">
+          <span class="label">TPS</span>
+          <span class="val mono" id="stat-tps">0</span>
+        </div>
+        <div class="telemetry-divider"></div>
+        <div class="telemetry-item" title="Living Neural Agents">
+          <span class="label">Pop</span>
+          <span class="val mono highlight-pop" id="stat-pop">0</span>
+        </div>
+        <div class="telemetry-divider"></div>
+        <div class="telemetry-item" title="Global Plant Biomass Density">
+          <span class="label">Biomass</span>
+          <span class="val mono highlight-biomass" id="stat-biomass">0</span>
+        </div>
+        <div class="telemetry-divider"></div>
+        <div class="telemetry-item" title="World Surface Water Coverage">
+          <span class="label">Water</span>
+          <span class="val mono highlight-water" id="stat-water">0%</span>
+        </div>
+      </div>
+
+      <div class="hud-group hud-controls">
+        <button id="btn-pause" class="btn btn-primary" title="Play/Pause Simulation (Space)">
+          <span id="pause-icon">⏸</span>
+          <span id="pause-text">Pause</span>
+        </button>
+
+        <div class="speed-group" role="group" aria-label="Simulation Speed">
+          <button class="btn btn-speed active" data-speed="1" title="Normal 1x Speed">1x</button>
+          <button class="btn btn-speed" data-speed="2" title="Fast 2x Speed">2x</button>
+          <button class="btn btn-speed" data-speed="5" title="Very Fast 5x Speed">5x</button>
+          <button class="btn btn-speed" data-speed="10" title="Ultra Fast 10x Speed">10x</button>
+          <button class="btn btn-speed btn-turbo" data-speed="turbo" title="Turbo Mode (Uncapped Microtask Pump)">⚡ Turbo</button>
+        </div>
+
+        <div class="layer-control">
+          <label for="layer-select" class="visually-hidden">Visualization Layer</label>
+          <select id="layer-select" class="dropdown-select" title="Switch Visualization Layer">
+            <option value="biome" selected>🗺️ Biome Map</option>
+            <option value="elevation">⛰️ Elevation Topography</option>
+            <option value="water">💧 Water & Hydrology</option>
+            <option value="biomass">🌿 Biomass Vegetation</option>
+            <option value="trample">🐾 Trampled Trails</option>
+            <option value="scent">🧪 Pheromone Scent</option>
+          </select>
+        </div>
+
+        <div class="action-buttons">
+          <button id="btn-save" class="btn btn-secondary" title="Save Simulation State">💾 Save</button>
+          <button id="btn-load-list" class="btn btn-secondary" title="Open Saved Simulations">📂 Load</button>
+          <button id="btn-reset" class="btn btn-danger" title="Re-seed Simulation World">🔄 Reset</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Workspace: Viewport & Inspector -->
+    <main id="main-container">
+      <!-- Simulation Canvas Container -->
+      <section id="canvas-container">
+        <canvas id="sim-canvas"></canvas>
+        <div id="viewport-hints">
+          <span>Pan: <strong>Click & Drag</strong></span>
+          <span>•</span>
+          <span>Zoom: <strong>Wheel</strong></span>
+          <span>•</span>
+          <span>Inspect: <strong>Click Tile / Agent</strong></span>
+          <span>•</span>
+          <span>Center: <strong>C</strong></span>
+        </div>
+      </section>
+
+      <!-- Right Inspector Sidebar -->
+      <aside id="inspector-sidebar">
+        <div class="sidebar-header">
+          <h2>Inspector</h2>
+          <button id="btn-toggle-sidebar" class="btn-icon" title="Minimize Sidebar">◀</button>
+        </div>
+
+        <div class="sidebar-content">
+          <!-- Tile Inspection Card -->
+          <div class="inspector-card" id="card-tile">
+            <div class="card-header">
+              <span class="card-icon">📍</span>
+              <h3>Tile Cell</h3>
+              <span class="card-badge mono" id="tile-coords">—, —</span>
+            </div>
+            <div class="card-body">
+              <div class="stat-row">
+                <span class="stat-name">Biome:</span>
+                <span class="stat-val" id="tile-biome">—</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-name">Elevation:</span>
+                <span class="stat-val mono" id="tile-elevation">—</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-name">Surface Water:</span>
+                <span class="stat-val mono" id="tile-water">—</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-name">Soil Moisture:</span>
+                <span class="stat-val mono" id="tile-moisture">—</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-name">Biomass:</span>
+                <span class="stat-val mono" id="tile-biomass">—</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-name">Trail Trample:</span>
+                <span class="stat-val mono" id="tile-trample">—</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-name">Scent Pheromone:</span>
+                <span class="stat-val mono" id="tile-scent">—</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Agent Inspection Card -->
+          <div class="inspector-card" id="card-agent">
+            <div class="card-header">
+              <span class="card-icon">🧠</span>
+              <h3>Neural Agent</h3>
+              <span class="card-badge mono" id="agent-id">None</span>
+            </div>
+            <div class="card-body">
+              <div id="agent-empty-msg" class="empty-state">
+                <p>Click on any agent in the world to pin inspection.</p>
+              </div>
+
+              <div id="agent-details" class="agent-details hidden">
+                <div class="stat-row">
+                  <span class="stat-name">Species Lineage:</span>
+                  <span class="stat-val" id="agent-species">—</span>
+                </div>
+                <div class="stat-row">
+                  <span class="stat-name">Generation:</span>
+                  <span class="stat-val mono" id="agent-gen">—</span>
+                </div>
+                <div class="stat-row">
+                  <span class="stat-name">Age / Max:</span>
+                  <span class="stat-val mono" id="agent-age">—</span>
+                </div>
+                <div class="stat-row">
+                  <span class="stat-name">Position (X, Y):</span>
+                  <span class="stat-val mono" id="agent-pos">—</span>
+                </div>
+                <div class="stat-row">
+                  <span class="stat-name">Current Action:</span>
+                  <span class="stat-val highlight-action" id="agent-action">—</span>
+                </div>
+
+                <!-- Energy Gauge -->
+                <div class="energy-section">
+                  <div class="energy-header">
+                    <span class="stat-name">Energy Reserve:</span>
+                    <span class="stat-val mono" id="agent-energy-val">— / 250</span>
+                  </div>
+                  <div class="meter-bar">
+                    <div id="agent-energy-bar" class="meter-fill" style="width: 50%;"></div>
+                  </div>
+                </div>
+
+                <!-- Miniature RNN Brain Graph -->
+                <div class="brain-section">
+                  <div class="brain-header">
+                    <span class="stat-name">Recurrent Brain Activity</span>
+                    <span class="brain-status">Active</span>
+                  </div>
+                  <div class="canvas-wrapper">
+                    <canvas id="brain-canvas" width="280" height="140"></canvas>
+                  </div>
+                  <div class="brain-legend">
+                    <span>Input (29)</span>
+                    <span>Hidden (16)</span>
+                    <span>Output (9)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <!-- Modal Dialog for Save/Load -->
+    <div id="modal-container" class="modal-backdrop hidden">
+      <div class="modal-dialog">
+        <div class="modal-header">
+          <h2 id="modal-title">Saved Simulations</h2>
+          <button id="modal-btn-close" class="btn-icon">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="modal-create-row">
+            <input type="text" id="save-name-input" placeholder="Enter save name..." maxlength="48">
+            <button id="btn-save-confirm" class="btn btn-primary">Save Current State</button>
+          </div>
+          <div class="saves-list-wrapper">
+            <div id="saves-list-loading" class="saves-loading hidden">Loading saves...</div>
+            <ul id="saves-list" class="saves-list">
+              <!-- Dynamically populated via REST API -->
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Entry Script -->
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
+
