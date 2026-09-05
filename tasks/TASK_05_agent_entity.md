@@ -1,6 +1,6 @@
 # TASK_05: Neural Agent Entity
 
-- **Status**: `TODO`
+- **Status**: `DONE`
 - **Goal**: Implement `js/agent.js` managing individual creature state, egocentric sensory sampling, neural decision decoding, metabolic drain, and reproduction.
 - **Context**: Integrates the NeuralNet brain with physical grid interactions, strictly obeying the Anti-Cheat and Energy Proportionality lessons from EvoSimSpheres.
 
@@ -93,7 +93,7 @@ node -e "import('./js/grid.js').then(({ Grid }) => {
 
 ## Acceptance Criteria
 
-- [ ] Sensory readings are strictly physical (no artificial cheat labels).
-- [ ] Basal and movement energy drains scale realistically.
-- [ ] Dead agents clear occupancy and enrich soil fertility.
-- [ ] Serialization preserves agent coordinates, lineage, and brain weights.
+- [x] Sensory readings are strictly physical (no artificial cheat labels).
+- [x] Basal and movement energy drains scale realistically.
+- [x] Dead agents clear occupancy and enrich soil fertility.
+- [x] Serialization preserves agent coordinates, lineage, and brain weights.

@@ -1,6 +1,6 @@
 # TASK_07: Multi-Layer Canvas Renderer
 
-- **Status**: `TODO`
+- **Status**: `DONE`
 - **Goal**: Implement `js/renderer.js` to render the layered grid world and agents with camera pan/zoom and multi-channel layer switching.
 - **Context**: High-performance visual presentation layer decoupled from the simulation physics tick.
 
@@ -59,6 +59,6 @@ export class Renderer {
 
 ## Acceptance Criteria
 
-- [ ] 60 FPS rendering using direct pixel buffer rendering.
-- [ ] Layer modes render correct visual palettes (Biome, Topography, Water, Biomass, Trails, Scent).
-- [ ] Smooth mouse drag panning and wheel zooming.
+- [x] 60 FPS rendering using direct pixel buffer rendering.
+- [x] Layer modes render correct visual palettes (Biome, Topography, Water, Biomass, Trails, Scent).
+- [x] Smooth mouse drag panning and wheel zooming.

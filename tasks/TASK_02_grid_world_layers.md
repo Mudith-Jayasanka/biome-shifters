@@ -1,6 +1,6 @@
 # TASK_02: Flat TypedArray Grid World
 
-- **Status**: `TODO`
+- **Status**: `DONE`
 - **Goal**: Implement `js/grid.js` managing multi-layer continuous and discrete world data using flat 1D TypedArrays.
 - **Context**: High-performance foundation for environmental cellular automata and agent navigation, incorporating the zero-allocation lesson from EvoSimSpheres.
 
@@ -81,7 +81,7 @@ node -e "import('./js/grid.js').then(({ Grid }) => { const g = new Grid(64, 64);
 
 ## Acceptance Criteria
 
-- [ ] All layers are backed by flat 1D `Float32Array` or `Int32Array`.
-- [ ] Safe coordinate indexing prevents out-of-bounds array access.
-- [ ] `generateTerrain()` creates realistic natural heightmaps with valleys and plateaus.
-- [ ] `toJSON()` and `fromJSON()` serialize and restore all grid layers faithfully.
+- [x] All layers are backed by flat 1D `Float32Array` or `Int32Array`.
+- [x] Safe coordinate indexing prevents out-of-bounds array access.
+- [x] `generateTerrain()` creates realistic natural heightmaps with valleys and plateaus.
+- [x] `toJSON()` and `fromJSON()` serialize and restore all grid layers faithfully.

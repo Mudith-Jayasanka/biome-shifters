@@ -1,6 +1,6 @@
 # TASK_06: Simulation Coordinator & World Loop
 
-- **Status**: `TODO`
+- **Status**: `DONE`
 - **Goal**: Implement `js/simulation.js` managing world ticks, environmental updates, agent lifecycle coordination, population limits, elite tracking, and save/load serialization.
 - **Context**: Core coordinator of the artificial life engine, completely headless and ready for Web Worker offloading.
 
@@ -84,7 +84,7 @@ node -e "import('./js/simulation.js').then(({ Simulation }) => {
 
 ## Acceptance Criteria
 
-- [ ] Simulation coordinates environmental CA and agent lifecycles smoothly.
-- [ ] Dead agents are purged without memory leaks.
-- [ ] Extinction safety floor prevents total population death.
-- [ ] `toJSON()` produces a complete snapshot capable of exact reconstruction via `fromJSON()`.
+- [x] Simulation coordinates environmental CA and agent lifecycles smoothly.
+- [x] Dead agents are purged without memory leaks.
+- [x] Extinction safety floor prevents total population death.
+- [x] `toJSON()` produces a complete snapshot capable of exact reconstruction via `fromJSON()`.

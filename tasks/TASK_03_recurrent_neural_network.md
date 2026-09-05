@@ -1,6 +1,6 @@
 # TASK_03: Recurrent Neural Network with Hidden Carry
 
-- **Status**: `TODO`
+- **Status**: `DONE`
 - **Goal**: Implement `js/nn.js` providing a Recurrent Neural Network (RNN) with `Float32Array` weights, persistent hidden state carryover, Gaussian mutation, and weight crossover.
 - **Context**: Directly incorporates Golden Lesson #2 (Recurrent Memory) from EvoSimSpheres to prevent behavioral oscillation on grid tiles.
 
@@ -75,8 +75,8 @@ node -e "import('./js/nn.js').then(({ NeuralNet }) => {
 
 ## Acceptance Criteria
 
-- [ ] Network accepts 29 inputs, maintains 16 hidden recurrent neurons, and outputs 9 action logits.
-- [ ] Hidden state carries across sequential `feedForward()` calls without allocating new arrays.
-- [ ] `mutate()` perturbs weights with Gaussian noise.
-- [ ] `crossover()` produces valid offspring combining two parent brains.
-- [ ] `toJSON()` and `fromJSON()` roundtrip brain weights perfectly.
+- [x] Network accepts 29 inputs, maintains 16 hidden recurrent neurons, and outputs 9 action logits.
+- [x] Hidden state carries across sequential `feedForward()` calls without allocating new arrays.
+- [x] `mutate()` perturbs weights with Gaussian noise.
+- [x] `crossover()` produces valid offspring combining two parent brains.
+- [x] `toJSON()` and `fromJSON()` roundtrip brain weights perfectly.

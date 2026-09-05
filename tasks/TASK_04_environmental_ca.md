@@ -1,6 +1,6 @@
 # TASK_04: Environmental Cellular Automata (Hydrology & Flora)
 
-- **Status**: `TODO`
+- **Status**: `DONE`
 - **Goal**: Implement `js/environment.js` running cellular automata rules for water downhill flow, moisture diffusion, vegetation growth, and trail decay.
 - **Context**: Turns the static grid into a living, responsive ecosystem.
 
@@ -77,7 +77,7 @@ node -e "import('./js/grid.js').then(({ Grid }) => {
 
 ## Acceptance Criteria
 
-- [ ] Surface water realistically cascades down elevation slopes into depressions.
-- [ ] Soil moisture increases near water bodies and diffuses laterally.
-- [ ] Vegetation blooms where moisture is high and withers in arid/compacted soil.
-- [ ] Ping-pong buffers eliminate directional propagation artifacts.
+- [x] Surface water realistically cascades down elevation slopes into depressions.
+- [x] Soil moisture increases near water bodies and diffuses laterally.
+- [x] Vegetation blooms where moisture is high and withers in arid/compacted soil.
+- [x] Ping-pong buffers eliminate directional propagation artifacts.

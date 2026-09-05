@@ -1,6 +1,6 @@
 # TASK_08: Main Loop, Turbo Execution & UI Inspector
 
-- **Status**: `TODO`
+- **Status**: `DONE`
 - **Goal**: Implement `js/main.js` wiring together the simulation, renderer, heads-up controls, turbo pump, and live agent/tile inspector.
 - **Context**: Final Phase 1 task completing the fully playable, inspectable interactive simulation.
 
@@ -41,7 +41,7 @@
 
 ## Acceptance Criteria
 
-- [ ] Complete simulation loop runs seamlessly in browser.
-- [ ] Turbo mode achieves high TPS without freezing browser tab.
-- [ ] Persistent entity inspection works reliably across agent deaths.
-- [ ] Live HUD metrics reflect current population, biomass, and TPS.
+- [x] Complete simulation loop runs seamlessly in browser.
+- [x] Turbo mode achieves high TPS without freezing browser tab.
+- [x] Persistent entity inspection works reliably across agent deaths.
+- [x] Live HUD metrics reflect current population, biomass, and TPS.
