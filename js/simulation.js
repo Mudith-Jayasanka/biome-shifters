@@ -96,21 +96,53 @@ export class Simulation {
   }
 
   /**
-   * Find candidate spawn coordinates on safe, dry, unoccupied land
+   * Find candidate spawn coordinates on safe, dry, unoccupied land.
+   * Employs multi-tier progressive relaxation to guarantee spawning never deadlocks.
    */
-  findSpawnLocation(maxAttempts = 100) {
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+  findSpawnLocation() {
+    // Stage 1: Ideal conditions (dry lowland / plains, unoccupied)
+    for (let attempt = 0; attempt < 50; attempt++) {
       const x = Math.floor(Math.random() * this.width);
       const y = Math.floor(Math.random() * this.height);
 
       if (
         this.grid.getWater(x, y) < 0.25 &&
-        this.grid.getElevation(x, y) < 0.85 &&
+        this.grid.getElevation(x, y) < 0.80 &&
         this.grid.getOccupant(x, y) === -1
       ) {
         return { x, y };
       }
     }
+
+    // Stage 2: Relaxed conditions (any non-submerged land, including highlands, unoccupied)
+    for (let attempt = 0; attempt < 50; attempt++) {
+      const x = Math.floor(Math.random() * this.width);
+      const y = Math.floor(Math.random() * this.height);
+
+      if (
+        this.grid.getWater(x, y) < 0.35 &&
+        this.grid.getOccupant(x, y) === -1
+      ) {
+        return { x, y };
+      }
+    }
+
+    // Stage 3: Deterministic fallback scan across grid for any dry unoccupied cell
+    const total = this.grid.size;
+    const startIdx = Math.floor(Math.random() * total);
+    for (let offset = 0; offset < total; offset++) {
+      const idx = (startIdx + offset) % total;
+      const x = idx % this.width;
+      const y = Math.floor(idx / this.width);
+
+      if (
+        this.grid.water[idx] < 0.40 &&
+        this.grid.occupancy[idx] === -1
+      ) {
+        return { x, y };
+      }
+    }
+
     return null;
   }
 
@@ -192,7 +224,6 @@ export class Simulation {
     const fitness = agent.age + agent.generation * 100;
     const brainCopy = agent.brain.clone();
 
-    this.eliteArchive.push({ fitness, brain: brainCopy });
     this.eliteArchive.push({
       fitness,
       brain: brainCopy,
@@ -467,6 +498,11 @@ export class Simulation {
 
     if (data.stats && data.stats.generationMaxAllTime) {
       sim.stats.generationMaxAllTime = data.stats.generationMaxAllTime;
+    }
+
+    // Extinction recovery: if loaded save has collapsed to 0 or below floor, immediately reseed
+    if (sim.agents.length < sim.minPopulationFloor) {
+      sim.reseedFromElites(sim.minPopulationFloor);
     }
 
     sim.updateStats();

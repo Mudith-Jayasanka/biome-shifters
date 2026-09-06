@@ -12,13 +12,18 @@ export const CONFIG = {
   // Hydrology & Moisture CA
   WATER_FLOW_RATE: 0.25,     // Fraction of water transferred downhill per tick
   WATER_EVAP_RATE: 0.002,    // Fraction of standing water evaporated per tick
-  RAIN_PROBABILITY: 0.04,    // Chance per tick of rain deposit in random patch
   RAIN_PROBABILITY: 0.08,    // Chance per tick of rain deposit in random patch
   RAIN_INTENSITY: 0.35,      // Volume of water deposited by rain
   SOIL_INFILTRATION: 0.08,   // Surface water converting into subsurface moisture
   MOISTURE_DIFFUSION: 0.05,  // Lateral soil moisture diffusion rate
-  MOISTURE_DRYING: 0.003,    // Baseline drying rate of soil
   MOISTURE_DRYING: 0.001,    // Baseline drying rate of soil
+
+  // Geological Weathering & Erosion CA
+  TERRAFORM_MAX_ELEVATION: 0.72,  // Maximum elevation agents can artificially mound
+  SOIL_CREEP_THRESHOLD: 0.08,     // Slope difference threshold for gravitational soil creep
+  SOIL_CREEP_RATE: 0.02,          // Rate at which steep mounds relax into adjacent lower cells
+  EROSION_HYDRAULIC_RATE: 0.001,  // Sediment carrying capacity of water runoff
+  EROSION_BASE_WEATHERING: 0.00005,// Slow geological relaxation towards baseline bedrock
 
   // Vegetation (Biomass) CA
   BIOMASS_GROWTH_RATE: 0.02, // Base logistic growth rate r
@@ -38,13 +43,11 @@ export const CONFIG = {
   // Agent Energetics
   INITIAL_ENERGY: 100,
   MAX_ENERGY: 250,
-  REPRODUCTION_THRESHOLD: 160,
   REPRODUCTION_THRESHOLD: 135,
   REPRODUCTION_SPLIT: 0.5,   // Parent gives 50% energy to child
   BASAL_METABOLIC_DRAIN: 0.15,
   MOVE_ENERGY_BASE: 0.4,
   TERRAFORM_ENERGY_COST: 3.5,
-  GRAZE_MAX_INTAKE: 15.0,    // Max energy extracted from 1.0 biomass
   GRAZE_MAX_INTAKE: 18.0,    // Max energy extracted from 1.0 biomass
   MAX_AGE: 1800,             // Max lifespan in ticks
 

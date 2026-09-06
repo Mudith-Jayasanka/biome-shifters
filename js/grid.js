@@ -100,6 +100,7 @@ export class Grid {
 
     // Continuous physical layers (Float32Array)
     this.elevation = new Float32Array(this.size);
+    this.baseElevation = new Float32Array(this.size);
     this.water = new Float32Array(this.size);
     this.moisture = new Float32Array(this.size);
     this.fertility = new Float32Array(this.size);
@@ -247,6 +248,7 @@ export class Grid {
         elev = elev * 0.85 + (1 - distFromCenter) * 0.15;
         elev = Math.max(0, Math.min(1, elev));
         this.elevation[idx] = elev;
+        this.baseElevation[idx] = elev;
 
         // Water basin in lowest areas
         if (elev < 0.28) {
@@ -293,6 +295,7 @@ export class Grid {
       width: this.width,
       height: this.height,
       elevation: Array.from(this.elevation),
+      baseElevation: Array.from(this.baseElevation),
       water: Array.from(this.water),
       moisture: Array.from(this.moisture),
       fertility: Array.from(this.fertility),
@@ -306,6 +309,36 @@ export class Grid {
   static fromJSON(data) {
     const grid = new Grid(data.width, data.height);
     grid.elevation.set(data.elevation);
+    if (data.baseElevation) {
+      grid.baseElevation.set(data.baseElevation);
+    } else {
+      // Legacy save without baseElevation:
+      // If the map suffered runaway elevation (mean > 0.8), synthesize a natural
+      // baseline landscape so geological erosion can heal the runaway topography.
+      let sumElev = 0;
+      for (let i = 0; i < grid.size; i++) sumElev += grid.elevation[i];
+      const meanElev = sumElev / grid.size;
+      if (meanElev > 0.8) {
+        const rand = createPRNG(42);
+        const noise = new ValueNoise2D(rand);
+        for (let y = 0; y < grid.height; y++) {
+          for (let x = 0; x < grid.width; x++) {
+            const idx = grid.getIndex(x, y);
+            const nx = x / grid.width;
+            const ny = y / grid.height;
+            let base = noise.fbm(nx * 4, ny * 4, 4, 0.5, 2.0);
+            const dx = nx - 0.5;
+            const dy = ny - 0.5;
+            const dist = Math.sqrt(dx * dx + dy * dy) * 1.414;
+            base = base * 0.85 + (1 - dist) * 0.15;
+            grid.baseElevation[idx] = Math.max(0.12, Math.min(0.75, base));
+          }
+        }
+      } else {
+        grid.baseElevation.set(data.elevation);
+      }
+    }
+
     grid.water.set(data.water);
     grid.moisture.set(data.moisture);
     grid.fertility.set(data.fertility);

@@ -19,6 +19,7 @@ export class Environment {
     this.moistureBuffer = new Float32Array(this.size);
     this.biomassBuffer = new Float32Array(this.size);
     this.scentBuffer = new Float32Array(this.size);
+    this.elevationBuffer = new Float32Array(this.size);
   }
 
   /**
@@ -28,6 +29,7 @@ export class Environment {
     this.simulateWaterSources();
     this.simulateRainAndEvaporation();
     this.simulateHydrology();
+    this.simulateGeologicalErosion();
     this.simulateMoistureDiffusion();
     this.simulateVegetationGrowth();
     this.simulateTrailDecay();
@@ -367,6 +369,114 @@ export class Environment {
     }
 
     scent.set(nextScent);
+  }
+
+  /**
+   * Geological Weathering, Soil Creep, Hydraulic Erosion & Topography Equilibrium
+   * Prevents runaway elevation, smooths artificial terrain spikes, and preserves landscape diversity.
+   */
+  simulateGeologicalErosion() {
+    const w = this.width;
+    const h = this.height;
+    const elev = this.grid.elevation;
+    const base = this.grid.baseElevation;
+    const water = this.grid.water;
+    const nextElev = this.elevationBuffer;
+
+    nextElev.set(elev);
+
+    const creepThreshold = CONFIG.SOIL_CREEP_THRESHOLD;
+    const creepRate = CONFIG.SOIL_CREEP_RATE;
+    const hydraulicRate = CONFIG.EROSION_HYDRAULIC_RATE;
+    const baseWeatheringRate = CONFIG.EROSION_BASE_WEATHERING;
+
+    // 1. Soil Creep (Angle of Repose / Thermal Relaxation) & Hydraulic sediment transport
+    for (let y = 0; y < h; y++) {
+      const yOffset = y * w;
+      for (let x = 0; x < w; x++) {
+        const i = yOffset + x;
+        const curE = elev[i];
+        const curW = water[i];
+
+        let totalCreepOut = 0;
+
+        // North
+        if (y > 0) {
+          const nIdx = i - w;
+          const diff = curE - elev[nIdx];
+          if (diff > creepThreshold) {
+            const creep = (diff - creepThreshold) * creepRate * 0.25;
+            totalCreepOut += creep;
+            nextElev[nIdx] += creep;
+          }
+          if (curW > 0.05 && diff > 0.02) {
+            const hydro = Math.min(diff * 0.1, curW * hydraulicRate * 0.25);
+            totalCreepOut += hydro;
+            nextElev[nIdx] += hydro;
+          }
+        }
+        // South
+        if (y < h - 1) {
+          const sIdx = i + w;
+          const diff = curE - elev[sIdx];
+          if (diff > creepThreshold) {
+            const creep = (diff - creepThreshold) * creepRate * 0.25;
+            totalCreepOut += creep;
+            nextElev[sIdx] += creep;
+          }
+          if (curW > 0.05 && diff > 0.02) {
+            const hydro = Math.min(diff * 0.1, curW * hydraulicRate * 0.25);
+            totalCreepOut += hydro;
+            nextElev[sIdx] += hydro;
+          }
+        }
+        // East
+        if (x < w - 1) {
+          const eIdx = i + 1;
+          const diff = curE - elev[eIdx];
+          if (diff > creepThreshold) {
+            const creep = (diff - creepThreshold) * creepRate * 0.25;
+            totalCreepOut += creep;
+            nextElev[eIdx] += creep;
+          }
+          if (curW > 0.05 && diff > 0.02) {
+            const hydro = Math.min(diff * 0.1, curW * hydraulicRate * 0.25);
+            totalCreepOut += hydro;
+            nextElev[eIdx] += hydro;
+          }
+        }
+        // West
+        if (x > 0) {
+          const wIdx = i - 1;
+          const diff = curE - elev[wIdx];
+          if (diff > creepThreshold) {
+            const creep = (diff - creepThreshold) * creepRate * 0.25;
+            totalCreepOut += creep;
+            nextElev[wIdx] += creep;
+          }
+          if (curW > 0.05 && diff > 0.02) {
+            const hydro = Math.min(diff * 0.1, curW * hydraulicRate * 0.25);
+            totalCreepOut += hydro;
+            nextElev[wIdx] += hydro;
+          }
+        }
+
+        nextElev[i] -= totalCreepOut;
+      }
+    }
+
+    // 2. Slow geological weathering pull towards bedrock baseline
+    for (let i = 0; i < this.size; i++) {
+      let val = nextElev[i];
+      if (base) {
+        const delta = base[i] - val;
+        // If elevation is bloated significantly above baseline, accelerate weathering
+        const pull = Math.abs(delta) > 0.15 ? baseWeatheringRate * 4 : baseWeatheringRate;
+        val += delta * pull;
+      }
+      // Safety clamp [0.0, 1.0]
+      elev[i] = Math.max(0.0, Math.min(1.0, val));
+    }
   }
 }
 

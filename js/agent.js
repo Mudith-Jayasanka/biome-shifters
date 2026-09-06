@@ -236,12 +236,15 @@ export class Agent {
       }
 
       case ACTIONS.MOUND_EARTH: {
-        this.energy -= CONFIG.TERRAFORM_ENERGY_COST;
         const elev = grid.getElevation(this.x, this.y);
-        if (elev < 0.95) {
-          grid.setElevation(this.x, this.y, elev + 0.05);
+        // Agents cannot mound earth beyond hill height into alpine peaks
+        if (elev < CONFIG.TERRAFORM_MAX_ELEVATION) {
+          this.energy -= CONFIG.TERRAFORM_ENERGY_COST;
+          grid.setElevation(this.x, this.y, elev + 0.04);
           success = 1.0;
         } else {
+          // Blocked: cannot mound higher
+          this.energy -= 0.1;
           success = 0.0;
         }
         break;

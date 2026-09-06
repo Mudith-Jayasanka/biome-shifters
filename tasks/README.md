@@ -75,15 +75,8 @@ TASK_21 (Multi-Island Parallelism & Biome Continental Drift)
 | **10** | `TASK_10_population_scaling_and_capacity.md` | `js/config.js`, `js/simulation.js`, `index.html`, `style.css`, `js/main.js` | `DONE` | Scaled population capacity (800+), elevated floor (100), and HUD controls for parallel exploration. |
 | **11** | `TASK_11_inspector_vertical_cropping_fix.md` | `style.css`, `index.html`, `js/main.js` | `DONE` | Prevent flex compression on inspector cards, fix range slider clipping, and ensure full uncropped scrolling. |
 | **12** | `TASK_12_inspector_telemetry_and_generation_graphs.md` | `js/simulation.js`, `index.html`, `style.css`, `js/renderer.js`, `js/main.js` | `DONE` | Relocate HUD stats into inspector with live Population/Biomass and Generation distribution graphs. |
-| **13** | `TASK_13_ecosystem_balance_and_generation_progression.md` | `js/config.js`, `js/environment.js`, `js/simulation.js`, `js/main.js` | `TODO` | Ecological balance (hydrology, flora dormancy), reproduction rebalance, and elite lineage preservation. |
 | **13** | `TASK_13_ecosystem_balance_and_generation_progression.md` | `js/config.js`, `js/environment.js`, `js/simulation.js`, `js/main.js` | `DONE` | Ecological balance (hydrology, flora dormancy), reproduction rebalance, and elite lineage preservation. |
-| **14** | `TASK_14_save_load_system.md` | `js/storage.js`, `js/main.js` | `TODO` | REST save/load client integrating with `server.py` and local disk storage in `saves/`. |
-| **14** | `TASK_14_trampled_trails_and_highways.md` | `js/environment.js`, `js/agent.js` | `TODO` | Foot traffic soil compaction, dirt trails, and movement speed buffs on highways. |
-| **15** | `TASK_15_terraforming_mechanics.md` | `js/agent.js`, `js/grid.js` | `TODO` | Active canal digging, dam building, and irrigation environmental modification. |
-| **16** | `TASK_16_pheromone_stigmergy.md` | `js/grid.js`, `js/environment.js` | `TODO` | Scent deposition, diffusion, evaporation, and trail-following emergence. |
-| **17** | `TASK_17_sexual_reproduction_crossover.md` | `js/nn.js`, `js/agent.js` | `TODO` | Genetic weight crossover, sexual mate selection, and evolvable mutation rates. |
-| **18** | `TASK_18_extinction_safety_floor.md` | `js/simulation.js` | `TODO` | Top elite brain preservation and safety floor reseeding to avoid total collapses. |
-| **19** | `TASK_19_ecosystem_telemetry_graphs.md` | `js/renderer.js`, `index.html` | `TODO` | Real-time graphs for population, biomass density, water level, and average neural speed. |
+| **14** | `TASK_14_elevation_runaway_and_extinction_recovery_fix.md` | `js/config.js`, `js/grid.js`, `js/agent.js`, `js/environment.js`, `js/simulation.js` | `DONE` | Eliminate elevation runaway, add geological erosion CA, enforce mounding ceiling, and ensure robust spawn fallback. |
 | **15** | `TASK_15_trampled_trails_and_highways.md` | `js/environment.js`, `js/agent.js` | `TODO` | Foot traffic soil compaction, dirt trails, and movement speed buffs on highways. |
 | **16** | `TASK_16_terraforming_mechanics.md` | `js/agent.js`, `js/grid.js` | `TODO` | Active canal digging, dam building, and irrigation environmental modification. |
 | **17** | `TASK_17_pheromone_stigmergy.md` | `js/grid.js`, `js/environment.js` | `TODO` | Scent deposition, diffusion, evaporation, and trail-following emergence. |
