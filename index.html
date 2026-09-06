@@ -19,33 +19,6 @@
         <span class="hud-badge">v1.0</span>
       </div>
 
-      <div class="hud-group hud-telemetry">
-        <div class="telemetry-item" title="World Ticks Elapsed">
-          <span class="label">Tick</span>
-          <span class="val mono" id="stat-tick">0</span>
-        </div>
-        <div class="telemetry-divider"></div>
-        <div class="telemetry-item" title="Ticks Per Second (Simulation Speed)">
-          <span class="label">TPS</span>
-          <span class="val mono" id="stat-tps">0</span>
-        </div>
-        <div class="telemetry-divider"></div>
-        <div class="telemetry-item" title="Living Neural Agents">
-          <span class="label">Pop</span>
-          <span class="val mono highlight-pop" id="stat-pop">0</span>
-        </div>
-        <div class="telemetry-divider"></div>
-        <div class="telemetry-item" title="Global Plant Biomass Density">
-          <span class="label">Biomass</span>
-          <span class="val mono highlight-biomass" id="stat-biomass">0</span>
-        </div>
-        <div class="telemetry-divider"></div>
-        <div class="telemetry-item" title="World Surface Water Coverage">
-          <span class="label">Water</span>
-          <span class="val mono highlight-water" id="stat-water">0%</span>
-        </div>
-      </div>
-
       <div class="hud-group hud-controls">
         <button id="btn-pause" class="btn btn-primary" title="Play/Pause Simulation (Space)">
           <span id="pause-icon">⏸</span>
@@ -58,6 +31,10 @@
           <button class="btn btn-speed" data-speed="5" title="Very Fast 5x Speed">5x</button>
           <button class="btn btn-speed" data-speed="10" title="Ultra Fast 10x Speed">10x</button>
           <button class="btn btn-speed btn-turbo" data-speed="turbo" title="Turbo Mode (Uncapped Microtask Pump)">⚡ Turbo</button>
+        </div>
+
+        <div class="quick-spawn-group">
+          <button id="btn-quick-spawn" class="btn btn-secondary" title="Quick Spawn 50 Agents (+50)">+50 👥</button>
         </div>
 
         <div class="layer-control">
@@ -112,12 +89,137 @@
         </div>
 
         <div class="sidebar-content">
+          <!-- World & Ecosystem Telemetry Card -->
+          <div class="inspector-card" id="card-telemetry">
+            <div class="card-header" title="Click to collapse/expand">
+              <span class="card-icon">🌍</span>
+              <h3>World Ecosystem</h3>
+              <span class="card-badge mono" id="stat-tick-badge">Tick 0</span>
+              <span class="card-collapse-icon">▾</span>
+            </div>
+            <div class="card-body">
+              <div class="telemetry-grid">
+                <div class="stat-cell">
+                  <span class="stat-name">Ticks:</span>
+                  <span class="stat-val mono" id="stat-tick">0</span>
+                </div>
+                <div class="stat-cell">
+                  <span class="stat-name">TPS:</span>
+                  <span class="stat-val mono" id="stat-tps">0</span>
+                </div>
+                <div class="stat-cell">
+                  <span class="stat-name">Population:</span>
+                  <span class="stat-val mono highlight-pop" id="stat-pop">0</span>
+                </div>
+                <div class="stat-cell">
+                  <span class="stat-name">Avg Energy:</span>
+                  <span class="stat-val mono" id="stat-avg-energy">0</span>
+                </div>
+                <div class="stat-cell">
+                  <span class="stat-name">Biomass:</span>
+                  <span class="stat-val mono highlight-biomass" id="stat-biomass">0</span>
+                </div>
+                <div class="stat-cell">
+                  <span class="stat-name">Water:</span>
+                  <span class="stat-val mono highlight-water" id="stat-water">0%</span>
+                </div>
+              </div>
+
+              <!-- Live Ecosystem History Graph -->
+              <div class="graph-section">
+                <div class="graph-header">
+                  <span class="graph-title">Ecosystem Trends (1200 Ticks)</span>
+                  <span class="graph-status mono" id="eco-trend-status">Live</span>
+                </div>
+                <div class="graph-canvas-wrapper">
+                  <canvas id="telemetry-canvas" width="280" height="90"></canvas>
+                </div>
+                <div class="graph-legend">
+                  <span class="legend-item legend-pop">● Population</span>
+                  <span class="legend-item legend-biomass">● Plant Biomass</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Evolution & Generations Card -->
+          <div class="inspector-card" id="card-evolution">
+            <div class="card-header" title="Click to collapse/expand">
+              <span class="card-icon">🧬</span>
+              <h3>Evolution & Generations</h3>
+              <span class="card-badge mono" id="stat-maxgen-badge">Gen 1</span>
+              <span class="card-collapse-icon">▾</span>
+            </div>
+            <div class="card-body">
+              <div class="stat-row">
+                <span class="stat-name">Max Generation:</span>
+                <span class="stat-val mono highlight-action" id="stat-max-gen">Gen 1</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-name">Avg Generation:</span>
+                <span class="stat-val mono" id="stat-avg-gen">Gen 1.0</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-name">Elites Preserved:</span>
+                <span class="stat-val mono" id="stat-elites-count">0 / 25</span>
+              </div>
+
+              <!-- Live Generation Distribution Graph -->
+              <div class="graph-section">
+                <div class="graph-header">
+                  <span class="graph-title">Living Generation Distribution</span>
+                  <span class="graph-status mono" id="gen-active-count">1 Gen</span>
+                </div>
+                <div class="graph-canvas-wrapper">
+                  <canvas id="generation-canvas" width="280" height="90"></canvas>
+                </div>
+                <div class="graph-legend">
+                  <span class="legend-item legend-gen-bars">▮ Agent Share (%)</span>
+                  <span class="legend-item legend-gen-trend">─ Generation Ascent</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Population & Ecosystem Controls Card -->
+          <div class="inspector-card" id="card-population">
+            <div class="card-header" title="Click to collapse/expand">
+              <span class="card-icon">👥</span>
+              <h3>Population & Capacity</h3>
+              <span class="card-badge mono" id="pop-ratio-badge">0 / 800</span>
+              <span class="card-collapse-icon">▾</span>
+            </div>
+            <div class="card-body">
+              <div class="slider-control-group">
+                <div class="slider-label-row">
+                  <span class="stat-name">Population Cap:</span>
+                  <span class="stat-val mono" id="label-pop-cap">800</span>
+                </div>
+                <input type="range" id="slider-pop-cap" class="custom-range" min="100" max="2000" step="50" value="800">
+              </div>
+
+              <div class="slider-control-group">
+                <div class="slider-label-row">
+                  <span class="stat-name">Extinction Floor:</span>
+                  <span class="stat-val mono" id="label-pop-floor">100</span>
+                </div>
+                <input type="range" id="slider-pop-floor" class="custom-range" min="10" max="500" step="10" value="100">
+              </div>
+
+              <div class="pop-action-buttons">
+                <button id="btn-spawn-50" class="btn btn-secondary btn-sm" title="Spawn 50 Agents (+50)">+50 Agents</button>
+                <button id="btn-spawn-100" class="btn btn-secondary btn-sm" title="Spawn 100 Agents (+100)">+100 Agents</button>
+              </div>
+            </div>
+          </div>
+
           <!-- Tile Inspection Card -->
           <div class="inspector-card" id="card-tile">
-            <div class="card-header">
+            <div class="card-header" title="Click to collapse/expand">
               <span class="card-icon">📍</span>
               <h3>Tile Cell</h3>
               <span class="card-badge mono" id="tile-coords">—, —</span>
+              <span class="card-collapse-icon">▾</span>
             </div>
             <div class="card-body">
               <div class="stat-row">
@@ -153,10 +255,11 @@
 
           <!-- Agent Inspection Card -->
           <div class="inspector-card" id="card-agent">
-            <div class="card-header">
+            <div class="card-header" title="Click to collapse/expand">
               <span class="card-icon">🧠</span>
               <h3>Neural Agent</h3>
               <span class="card-badge mono" id="agent-id">None</span>
+              <span class="card-collapse-icon">▾</span>
             </div>
             <div class="card-body">
               <div id="agent-empty-msg" class="empty-state">

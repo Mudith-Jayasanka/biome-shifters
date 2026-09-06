@@ -24,16 +24,38 @@ export class Simulation {
 
     // Top historical genetic performers preserved for extinction recovery
     this.eliteArchive = [];
-    this.maxEliteArchiveSize = 15;
+    this.maxEliteArchiveSize = 25;
+
+    // Dynamic Population Ceiling & Safety Floor
+    this.maxPopulation = CONFIG.MAX_POPULATION || 800;
+    this.minPopulationFloor = CONFIG.MIN_POPULATION_FLOOR || 100;
+
+    // Historical telemetry buffers (120 samples recorded every 10 ticks = 1200 ticks of history)
+    this.historyCapacity = 120;
+    this.historySampleRate = 10;
+    this.history = {
+      pop: new Float32Array(this.historyCapacity),
+      biomass: new Float32Array(this.historyCapacity),
+      maxGen: new Float32Array(this.historyCapacity),
+      avgGen: new Float32Array(this.historyCapacity),
+      count: 0,
+      head: 0
+    };
 
     // Live world metrics
     this.stats = {
       tick: 0,
       population: 0,
+      maxPopulation: this.maxPopulation,
+      minPopulationFloor: this.minPopulationFloor,
       totalBiomass: 0,
       waterCoveragePct: 0,
       avgEnergy: 0,
-      generationMax: 1
+      generationMax: 1,
+      generationMaxAllTime: 1,
+      generationAvg: 1,
+      generationCounts: [],
+      elitesCount: 0
     };
   }
 
@@ -44,9 +66,33 @@ export class Simulation {
     this.tickCount = 0;
     this.agents = [];
     this.nextAgentId = 1;
+    this.history.count = 0;
+    this.history.head = 0;
+    this.history.pop.fill(0);
+    this.history.biomass.fill(0);
+    this.history.maxGen.fill(0);
+    this.history.avgGen.fill(0);
+    this.stats.generationMaxAllTime = 1;
     this.grid.generateTerrain(seed);
     this.spawnInitialPopulation(CONFIG.INITIAL_POPULATION);
     this.updateStats();
+    this.recordHistorySample();
+  }
+
+  /**
+   * Record zero-allocation snapshot into circular history ring buffer
+   */
+  recordHistorySample() {
+    const idx = this.history.head;
+    this.history.pop[idx] = this.agents.length;
+    this.history.biomass[idx] = this.stats.totalBiomass;
+    this.history.maxGen[idx] = this.stats.generationMax;
+    this.history.avgGen[idx] = this.stats.generationAvg;
+
+    this.history.head = (this.history.head + 1) % this.historyCapacity;
+    if (this.history.count < this.historyCapacity) {
+      this.history.count++;
+    }
   }
 
   /**
@@ -66,6 +112,60 @@ export class Simulation {
       }
     }
     return null;
+  }
+
+  /**
+   * Set maximum allowed population capacity
+   */
+  setMaxPopulation(val) {
+    this.maxPopulation = Math.max(50, Math.min(2500, Math.floor(val)));
+    if (this.minPopulationFloor > this.maxPopulation) {
+      this.minPopulationFloor = this.maxPopulation;
+    }
+    this.stats.maxPopulation = this.maxPopulation;
+    this.stats.minPopulationFloor = this.minPopulationFloor;
+  }
+
+  /**
+   * Set minimum extinction safety floor
+   */
+  setMinPopulationFloor(val) {
+    this.minPopulationFloor = Math.max(10, Math.min(this.maxPopulation, Math.floor(val)));
+    this.stats.minPopulationFloor = this.minPopulationFloor;
+  }
+
+  /**
+   * Inject a batch of new exploring agents
+   * @param {number} count
+   * @returns {number} Actual number spawned
+   */
+  spawnBatch(count = 50) {
+    const clamped = Math.min(count, this.maxPopulation - this.agents.length);
+    if (clamped <= 0) return 0;
+
+    let spawned = 0;
+    for (let i = 0; i < clamped; i++) {
+      const loc = this.findSpawnLocation();
+      if (!loc) break;
+
+      let brain;
+      if (this.eliteArchive.length > 0 && Math.random() < 0.65) {
+        const elite = this.eliteArchive[Math.floor(Math.random() * this.eliteArchive.length)];
+        brain = elite.brain.clone();
+        brain.mutate(CONFIG.MUTATION_RATE_DEFAULT * 1.5, 0.25);
+      } else {
+        brain = new NeuralNet();
+      }
+
+      const agent = new Agent(this.nextAgentId++, loc.x, loc.y, brain);
+      agent.energy = CONFIG.INITIAL_ENERGY * 1.25;
+      this.grid.setOccupant(loc.x, loc.y, agent.id);
+      this.agents.push(agent);
+      spawned++;
+    }
+
+    this.updateStats();
+    return spawned;
   }
 
   /**
@@ -93,6 +193,11 @@ export class Simulation {
     const brainCopy = agent.brain.clone();
 
     this.eliteArchive.push({ fitness, brain: brainCopy });
+    this.eliteArchive.push({
+      fitness,
+      brain: brainCopy,
+      generation: agent.generation
+    });
     this.eliteArchive.sort((a, b) => b.fitness - a.fitness);
 
     if (this.eliteArchive.length > this.maxEliteArchiveSize) {
@@ -103,7 +208,7 @@ export class Simulation {
   /**
    * Extinction recovery: Reseed population from top historical elite lineages
    */
-  reseedFromElites(targetCount = CONFIG.MIN_POPULATION_FLOOR) {
+  reseedFromElites(targetCount = this.minPopulationFloor) {
     const deficit = targetCount - this.agents.length;
     if (deficit <= 0) return;
 
@@ -112,16 +217,19 @@ export class Simulation {
       if (!loc) break;
 
       let brain;
+      let gen = 1;
       if (this.eliteArchive.length > 0) {
         const elite = this.eliteArchive[Math.floor(Math.random() * this.eliteArchive.length)];
         brain = elite.brain.clone();
         brain.mutate(CONFIG.MUTATION_RATE_DEFAULT * 1.5, 0.25);
+        gen = elite.generation || 1;
       } else {
         brain = new NeuralNet();
       }
 
       const agent = new Agent(this.nextAgentId++, loc.x, loc.y, brain);
-      agent.energy = CONFIG.INITIAL_ENERGY * 1.2; // Small initial subsidy
+      agent.energy = CONFIG.INITIAL_ENERGY * 1.25; // Small initial subsidy
+      agent.generation = gen;
       this.grid.setOccupant(loc.x, loc.y, agent.id);
       this.agents.push(agent);
     }
@@ -153,7 +261,7 @@ export class Simulation {
       }
 
       // Check reproduction
-      if (this.agents.length + newChildren.length < 300) {
+      if (this.agents.length + newChildren.length < this.maxPopulation) {
         const child = agent.checkReproduction(this.grid, this.nextAgentId);
         if (child) {
           this.nextAgentId++;
@@ -174,12 +282,17 @@ export class Simulation {
     this.agents = livingAgents;
 
     // 3. Extinction safety floor
-    if (this.agents.length < CONFIG.MIN_POPULATION_FLOOR) {
-      this.reseedFromElites();
+    if (this.agents.length < this.minPopulationFloor) {
+      this.reseedFromElites(this.minPopulationFloor);
     }
 
     // 4. Update telemetry statistics
     this.updateStats();
+
+    // 5. Record historical telemetry sample every 10 ticks
+    if (this.tickCount % this.historySampleRate === 0) {
+      this.recordHistorySample();
+    }
   }
 
   /**
@@ -198,19 +311,39 @@ export class Simulation {
     }
 
     let energySum = 0;
+    let genSum = 0;
     let maxGen = 1;
+    const genCountsMap = new Map();
+
     for (let i = 0; i < this.agents.length; i++) {
       const a = this.agents[i];
       energySum += a.energy;
+      genSum += a.generation;
       if (a.generation > maxGen) maxGen = a.generation;
+      genCountsMap.set(a.generation, (genCountsMap.get(a.generation) || 0) + 1);
+    }
+
+    const generationCounts = [];
+    for (const [gen, count] of genCountsMap.entries()) {
+      generationCounts.push({ gen, count });
+    }
+    generationCounts.sort((a, b) => a.gen - b.gen);
+
+    if (maxGen > this.stats.generationMaxAllTime) {
+      this.stats.generationMaxAllTime = maxGen;
     }
 
     this.stats.tick = this.tickCount;
     this.stats.population = this.agents.length;
+    this.stats.maxPopulation = this.maxPopulation;
+    this.stats.minPopulationFloor = this.minPopulationFloor;
     this.stats.totalBiomass = Math.round(totalBio);
     this.stats.waterCoveragePct = Math.round((waterCells / size) * 100);
     this.stats.avgEnergy = this.agents.length > 0 ? Math.round(energySum / this.agents.length) : 0;
     this.stats.generationMax = maxGen;
+    this.stats.generationAvg = this.agents.length > 0 ? parseFloat((genSum / this.agents.length).toFixed(1)) : 1;
+    this.stats.generationCounts = generationCounts;
+    this.stats.elitesCount = this.eliteArchive.length;
   }
 
   /**
@@ -263,12 +396,23 @@ export class Simulation {
       timestamp: new Date().toISOString(),
       tick: this.tickCount,
       nextAgentId: this.nextAgentId,
+      maxPopulation: this.maxPopulation,
+      minPopulationFloor: this.minPopulationFloor,
       grid: this.grid.toJSON(),
       agents: this.agents.map(a => a.toJSON()),
       eliteArchive: this.eliteArchive.map(e => ({
         fitness: e.fitness,
+        generation: e.generation || 1,
         brain: e.brain.toJSON()
       })),
+      history: {
+        pop: Array.from(this.history.pop.subarray(0, this.history.count)),
+        biomass: Array.from(this.history.biomass.subarray(0, this.history.count)),
+        maxGen: Array.from(this.history.maxGen.subarray(0, this.history.count)),
+        avgGen: Array.from(this.history.avgGen.subarray(0, this.history.count)),
+        count: this.history.count,
+        head: this.history.head
+      },
       stats: { ...this.stats }
     };
   }
@@ -281,8 +425,22 @@ export class Simulation {
 
     sim.tickCount = data.tick || 0;
     sim.nextAgentId = data.nextAgentId || (data.agents.length + 1);
+    sim.maxPopulation = data.maxPopulation || CONFIG.MAX_POPULATION;
+    sim.minPopulationFloor = data.minPopulationFloor || CONFIG.MIN_POPULATION_FLOOR;
     sim.grid = Grid.fromJSON(data.grid);
     sim.environment = new Environment(sim.grid);
+
+    if (data.history && Array.isArray(data.history.pop)) {
+      const len = Math.min(sim.historyCapacity, data.history.pop.length);
+      sim.history.count = data.history.count || len;
+      sim.history.head = data.history.head || 0;
+      for (let i = 0; i < len; i++) {
+        sim.history.pop[i] = data.history.pop[i] || 0;
+        sim.history.biomass[i] = data.history.biomass ? data.history.biomass[i] || 0 : 0;
+        sim.history.maxGen[i] = data.history.maxGen ? data.history.maxGen[i] || 0 : 0;
+        sim.history.avgGen[i] = data.history.avgGen ? data.history.avgGen[i] || 0 : 0;
+      }
+    }
 
     // Reconstruct agents and ensure occupancy layer matches
     sim.grid.occupancy.fill(-1);
@@ -302,8 +460,13 @@ export class Simulation {
     if (Array.isArray(data.eliteArchive)) {
       sim.eliteArchive = data.eliteArchive.map(e => ({
         fitness: e.fitness,
+        generation: e.generation || 1,
         brain: NeuralNet.fromJSON(e.brain)
       }));
+    }
+
+    if (data.stats && data.stats.generationMaxAllTime) {
+      sim.stats.generationMaxAllTime = data.stats.generationMaxAllTime;
     }
 
     sim.updateStats();

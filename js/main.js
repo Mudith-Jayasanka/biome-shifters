@@ -26,6 +26,8 @@ class App {
   constructor() {
     this.canvas = document.getElementById('sim-canvas');
     this.brainCanvas = document.getElementById('brain-canvas');
+    this.telemetryCanvas = document.getElementById('telemetry-canvas');
+    this.generationCanvas = document.getElementById('generation-canvas');
     
     this.simulation = new Simulation();
     this.renderer = new Renderer(this.canvas);
@@ -239,7 +241,9 @@ class App {
       this.selectedTile = null;
       this.simulation.initWorld(Date.now());
       this.renderer.initCameraCentered();
+      this.syncPopulationSliders();
       this.updateInspectorUI();
+      this.updateHUD();
     });
 
     // Sidebar Minimize & Unhide Toggle
@@ -265,8 +269,89 @@ class App {
       btnUnhideSidebar.addEventListener('click', () => setSidebarCollapsed(false));
     }
 
+    // Sidebar Card Accordion Collapse/Expand
+    document.querySelectorAll('.card-header').forEach(header => {
+      header.addEventListener('click', () => {
+        const card = header.closest('.inspector-card');
+        if (card) {
+          card.classList.toggle('card-collapsed');
+        }
+      });
+    });
+
+    // Population Management Controls
+    this.setupPopulationControls();
+
     // Save & Load Modal
     this.setupSaveLoadModal();
+  }
+
+  setupPopulationControls() {
+    const btnQuickSpawn = document.getElementById('btn-quick-spawn');
+    if (btnQuickSpawn) {
+      btnQuickSpawn.addEventListener('click', () => {
+        this.simulation.spawnBatch(50);
+        this.updateHUD();
+      });
+    }
+
+    const btnSpawn50 = document.getElementById('btn-spawn-50');
+    if (btnSpawn50) {
+      btnSpawn50.addEventListener('click', () => {
+        this.simulation.spawnBatch(50);
+        this.updateHUD();
+      });
+    }
+
+    const btnSpawn100 = document.getElementById('btn-spawn-100');
+    if (btnSpawn100) {
+      btnSpawn100.addEventListener('click', () => {
+        this.simulation.spawnBatch(100);
+        this.updateHUD();
+      });
+    }
+
+    const sliderPopCap = document.getElementById('slider-pop-cap');
+    const labelPopCap = document.getElementById('label-pop-cap');
+    if (sliderPopCap) {
+      sliderPopCap.value = this.simulation.maxPopulation;
+      if (labelPopCap) labelPopCap.textContent = this.simulation.maxPopulation;
+      sliderPopCap.addEventListener('input', (e) => {
+        const val = parseInt(e.target.value, 10);
+        this.simulation.setMaxPopulation(val);
+        if (labelPopCap) labelPopCap.textContent = val;
+        this.updateHUD();
+      });
+    }
+
+    const sliderPopFloor = document.getElementById('slider-pop-floor');
+    const labelPopFloor = document.getElementById('label-pop-floor');
+    if (sliderPopFloor) {
+      sliderPopFloor.value = this.simulation.minPopulationFloor;
+      if (labelPopFloor) labelPopFloor.textContent = this.simulation.minPopulationFloor;
+      sliderPopFloor.addEventListener('input', (e) => {
+        const val = parseInt(e.target.value, 10);
+        this.simulation.setMinPopulationFloor(val);
+        if (labelPopFloor) labelPopFloor.textContent = val;
+        this.updateHUD();
+      });
+    }
+  }
+
+  syncPopulationSliders() {
+    const sliderPopCap = document.getElementById('slider-pop-cap');
+    const labelPopCap = document.getElementById('label-pop-cap');
+    if (sliderPopCap) {
+      sliderPopCap.value = this.simulation.maxPopulation;
+      if (labelPopCap) labelPopCap.textContent = this.simulation.maxPopulation;
+    }
+
+    const sliderPopFloor = document.getElementById('slider-pop-floor');
+    const labelPopFloor = document.getElementById('label-pop-floor');
+    if (sliderPopFloor) {
+      sliderPopFloor.value = this.simulation.minPopulationFloor;
+      if (labelPopFloor) labelPopFloor.textContent = this.simulation.minPopulationFloor;
+    }
   }
 
   setupSaveLoadModal() {
@@ -323,7 +408,9 @@ class App {
               this.simulation = Simulation.fromJSON(data);
               this.selectedAgentId = null;
               this.selectedTile = null;
+              this.syncPopulationSliders();
               this.updateInspectorUI();
+              this.updateHUD();
               closeModal();
             } catch (err) {
               alert(`Failed to load save: ${err.message}`);
@@ -464,15 +551,69 @@ class App {
 
   updateHUD() {
     const stats = this.simulation.stats;
-    document.getElementById('stat-tick').textContent = stats.tick.toLocaleString();
-    document.getElementById('stat-tps').textContent = this.currentTps.toLocaleString();
-    document.getElementById('stat-pop').textContent = stats.population;
-    document.getElementById('stat-biomass').textContent = stats.totalBiomass.toLocaleString();
-    document.getElementById('stat-water').textContent = `${stats.waterCoveragePct}%`;
+    const tickEl = document.getElementById('stat-tick');
+    if (tickEl) tickEl.textContent = stats.tick.toLocaleString();
+    const tickBadge = document.getElementById('stat-tick-badge');
+    if (tickBadge) tickBadge.textContent = `Tick ${stats.tick.toLocaleString()}`;
+
+    const tpsEl = document.getElementById('stat-tps');
+    if (tpsEl) tpsEl.textContent = this.currentTps.toLocaleString();
+
+    const popEl = document.getElementById('stat-pop');
+    if (popEl) popEl.textContent = `${stats.population} / ${stats.maxPopulation || CONFIG.MAX_POPULATION}`;
+
+    const avgEnergyEl = document.getElementById('stat-avg-energy');
+    if (avgEnergyEl) avgEnergyEl.textContent = `${stats.avgEnergy} / ${CONFIG.MAX_ENERGY}`;
+
+    const bioEl = document.getElementById('stat-biomass');
+    if (bioEl) bioEl.textContent = stats.totalBiomass.toLocaleString();
+
+    const waterEl = document.getElementById('stat-water');
+    if (waterEl) waterEl.textContent = `${stats.waterCoveragePct}%`;
+
+    const popRatioBadge = document.getElementById('pop-ratio-badge');
+    if (popRatioBadge) popRatioBadge.textContent = `${stats.population} / ${stats.maxPopulation || CONFIG.MAX_POPULATION}`;
+
+    // Evolution Card Stats
+    const maxGenBadge = document.getElementById('stat-maxgen-badge');
+    if (maxGenBadge) maxGenBadge.textContent = `Gen ${stats.generationMax}`;
+    if (maxGenBadge) {
+      maxGenBadge.textContent = stats.generationMaxAllTime > stats.generationMax
+        ? `Gen ${stats.generationMax} (★${stats.generationMaxAllTime})`
+        : `Gen ${stats.generationMax}`;
+    }
+
+    const maxGenEl = document.getElementById('stat-max-gen');
+    if (maxGenEl) maxGenEl.textContent = `Gen ${stats.generationMax}`;
+    if (maxGenEl) {
+      maxGenEl.textContent = stats.generationMaxAllTime > stats.generationMax
+        ? `Gen ${stats.generationMax} (Peak: ${stats.generationMaxAllTime})`
+        : `Gen ${stats.generationMax}`;
+    }
+
+    const avgGenEl = document.getElementById('stat-avg-gen');
+    if (avgGenEl) avgGenEl.textContent = `Gen ${stats.generationAvg}`;
+
+    const elitesCountEl = document.getElementById('stat-elites-count');
+    if (elitesCountEl) elitesCountEl.textContent = `${stats.elitesCount} / 25`;
+
+    const genActiveCount = document.getElementById('gen-active-count');
+    if (genActiveCount) {
+      const activeCount = stats.generationCounts ? stats.generationCounts.length : 1;
+      genActiveCount.textContent = `${activeCount} ${activeCount === 1 ? 'Gen' : 'Gens'} Active`;
+    }
   }
 
   updateInspectorUI() {
-    // 1. Tile Inspector Card
+    // 1. Live Telemetry & Generation Graphs
+    if (this.telemetryCanvas) {
+      Renderer.renderTelemetryGraph(this.telemetryCanvas, this.simulation);
+    }
+    if (this.generationCanvas) {
+      Renderer.renderGenerationGraph(this.generationCanvas, this.simulation);
+    }
+
+    // 2. Tile Inspector Card
     if (this.selectedTile) {
       const info = this.simulation.getTileInfo(this.selectedTile.x, this.selectedTile.y);
       if (info) {
@@ -487,7 +628,7 @@ class App {
       }
     }
 
-    // 2. Agent Inspector Card
+    // 3. Agent Inspector Card
     const emptyMsg = document.getElementById('agent-empty-msg');
     const details = document.getElementById('agent-details');
     const agentBadge = document.getElementById('agent-id');
@@ -524,7 +665,19 @@ class App {
   }
 }
 
-// Start application when DOM is ready
-window.addEventListener('DOMContentLoaded', () => {
-  window.__APP__ = new App();
-});
+// Start application when DOM is ready (or immediately if already parsed)
+function startApp() {
+  try {
+    if (!window.__APP__) {
+      window.__APP__ = new App();
+    }
+  } catch (err) {
+    console.error('Fatal initialization error in Biome Shifters:', err);
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', startApp);
+} else {
+  startApp();
+}

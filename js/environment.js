@@ -25,12 +25,26 @@ export class Environment {
    * Run one full environmental simulation cycle
    */
   tick() {
+    this.simulateWaterSources();
     this.simulateRainAndEvaporation();
     this.simulateHydrology();
     this.simulateMoistureDiffusion();
     this.simulateVegetationGrowth();
     this.simulateTrailDecay();
     this.simulatePheromoneDiffusion();
+  }
+
+  /**
+   * Replenish groundwater and sea level in natural low-elevation basins to prevent total drought
+   */
+  simulateWaterSources() {
+    const elev = this.grid.elevation;
+    const water = this.grid.water;
+    for (let i = 0; i < this.size; i++) {
+      if (elev[i] < 0.22 && water[i] < 0.4) {
+        water[i] = Math.min(0.6, water[i] + 0.02);
+      }
+    }
   }
 
   /**
@@ -275,14 +289,18 @@ export class Environment {
 
           nextBiomass[i] = Math.max(0, Math.min(K, newB));
         } else {
-          // Barren or grazed tile: Seed dispersal from adjacent flora
+          // Barren or grazed tile: Seed dispersal from adjacent flora OR subterranean seed dormancy
           let hasFloraNeighbor = false;
           if (y > 0 && biomass[i - w] > 0.3) hasFloraNeighbor = true;
           else if (y < h - 1 && biomass[i + w] > 0.3) hasFloraNeighbor = true;
           else if (x > 0 && biomass[i - 1] > 0.3) hasFloraNeighbor = true;
           else if (x < w - 1 && biomass[i + 1] > 0.3) hasFloraNeighbor = true;
 
-          if (hasFloraNeighbor && m > 0.25 && Math.random() < spreadChance * m * f * (1.0 - t)) {
+          const seedGermination = hasFloraNeighbor
+            ? (m > 0.25 && Math.random() < spreadChance * m * f * (1.0 - t))
+            : (m > 0.35 && f > 0.35 && Math.random() < 0.001 * (1.0 - t));
+
+          if (seedGermination) {
             nextBiomass[i] = 0.05; // Seed sprouts
           } else {
             nextBiomass[i] = 0;

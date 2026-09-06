@@ -191,6 +191,12 @@ html, body {
   color: #a5d6ff !important;
 }
 
+.pop-sub {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
 .highlight-biomass {
   color: #7ee787 !important;
 }
@@ -210,6 +216,25 @@ html, body {
 .hud-controls {
   gap: 6px;
   flex-shrink: 0;
+}
+
+.quick-spawn-group {
+  display: flex;
+  align-items: center;
+}
+
+.quick-spawn-group .btn {
+  padding: 5px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-color: rgba(88, 166, 255, 0.3);
+  color: #79c0ff;
+}
+
+.quick-spawn-group .btn:hover {
+  background-color: rgba(56, 139, 253, 0.15);
+  border-color: var(--accent-blue);
+  color: #ffffff;
 }
 
 .speed-group {
@@ -472,7 +497,8 @@ html, body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 14px 14px 28px 14px;
+  overflow-x: hidden;
+  padding: 14px 14px 40px 14px;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -494,15 +520,43 @@ html, body {
   border-radius: var(--radius-lg);
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
+  min-height: max-content;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .card-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
+  padding: 9px 12px;
   background-color: rgba(255, 255, 255, 0.02);
   border-bottom: 1px solid var(--border-color-subtle);
+  flex-shrink: 0;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s ease;
+}
+
+.card-header:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.card-collapse-icon {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-block;
+  margin-left: 2px;
+}
+
+.inspector-card.card-collapsed .card-collapse-icon {
+  transform: rotate(-90deg);
+}
+
+.inspector-card.card-collapsed .card-body {
+  display: none !important;
 }
 
 .card-icon {
@@ -529,12 +583,14 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 7px;
+  flex-shrink: 0;
 }
 
 .agent-details {
   display: flex;
   flex-direction: column;
   gap: 7px;
+  flex-shrink: 0;
 }
 
 .stat-row {
@@ -542,7 +598,9 @@ html, body {
   justify-content: space-between;
   align-items: center;
   font-size: 0.8rem;
-  line-height: 1.3;
+  line-height: 1.4;
+  min-height: 20px;
+  flex-shrink: 0;
 }
 
 .stat-name {
@@ -552,6 +610,192 @@ html, body {
 .stat-val {
   font-weight: 500;
   color: var(--text-primary);
+}
+
+/* Telemetry 2-Column Grid */
+.telemetry-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px 10px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border-color-subtle);
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+  flex-shrink: 0;
+}
+
+.stat-cell {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.78rem;
+  line-height: 1.3;
+}
+
+/* Real-Time Statistical Graphs */
+.graph-section {
+  margin-top: 4px;
+  border-top: 1px solid var(--border-color-subtle);
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.graph-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.74rem;
+}
+
+.graph-title {
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.graph-status {
+  font-size: 0.7rem;
+  color: var(--accent-cyan);
+}
+
+.graph-canvas-wrapper {
+  background-color: #06090e;
+  border: 1px solid var(--border-color-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 3px;
+  flex-shrink: 0;
+}
+
+.graph-canvas-wrapper canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 280 / 90;
+  max-height: 90px;
+}
+
+.graph-legend {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  padding: 0 4px;
+  flex-shrink: 0;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.68rem;
+}
+
+.legend-pop {
+  color: #79c0ff;
+}
+
+.legend-biomass {
+  color: #7ee787;
+}
+
+.legend-gen-bars {
+  color: #d2a8ff;
+}
+
+.legend-gen-trend {
+  color: #ffa657;
+}
+
+/* Population Controls Card */
+.slider-control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.slider-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+}
+
+.custom-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 18px;
+  background: transparent;
+  outline: none;
+  border: none;
+  cursor: pointer;
+  margin: 2px 0;
+}
+
+.custom-range::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--bg-main);
+  border: 1px solid var(--border-color);
+}
+
+.custom-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent-blue);
+  margin-top: -5px;
+  cursor: pointer;
+  box-shadow: 0 0 6px rgba(88, 166, 255, 0.5);
+  transition: transform 0.1s ease;
+}
+
+.custom-range::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  background: #79c0ff;
+}
+
+.custom-range::-moz-range-track {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--bg-main);
+  border: 1px solid var(--border-color);
+}
+
+.custom-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent-blue);
+  border: none;
+  cursor: pointer;
+}
+
+.pop-action-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
+.pop-action-buttons .btn {
+  flex: 1;
+  padding: 5px 8px;
+  font-size: 0.76rem;
 }
 
 .highlight-action {
@@ -565,6 +809,7 @@ html, body {
   color: var(--text-muted);
   font-size: 0.82rem;
   font-style: italic;
+  flex-shrink: 0;
 }
 
 /* Energy Gauge */
@@ -573,6 +818,7 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  flex-shrink: 0;
 }
 
 .energy-header {
@@ -605,6 +851,7 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  flex-shrink: 0;
 }
 
 .brain-header {
@@ -631,6 +878,7 @@ html, body {
   justify-content: center;
   align-items: center;
   padding: 4px;
+  flex-shrink: 0;
 }
 
 #brain-canvas {
@@ -647,6 +895,7 @@ html, body {
   font-size: 0.7rem;
   color: var(--text-muted);
   padding: 0 10px;
+  flex-shrink: 0;
 }
 
 /* ==========================================================================

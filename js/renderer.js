@@ -396,5 +396,198 @@ export class Renderer {
       ctx.fill();
     }
   }
+
+  /**
+   * Render real-time dual-curve history graph for Population and Biomass
+   */
+  static renderTelemetryGraph(canvas, simulation) {
+    if (!canvas || !simulation) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width;
+    const h = canvas.height;
+
+    ctx.fillStyle = '#06090e';
+    ctx.fillRect(0, 0, w, h);
+
+    const hist = simulation.history;
+    const count = hist ? hist.count : 0;
+    if (count < 2) {
+      ctx.fillStyle = '#484f58';
+      ctx.font = '10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Collecting eco-telemetry...', w / 2, h / 2 + 3);
+      return;
+    }
+
+    // Gridlines
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.lineWidth = 1;
+    for (let y = 0.25; y <= 0.75; y += 0.25) {
+      const gy = Math.round(h * y);
+      ctx.beginPath();
+      ctx.moveTo(0, gy);
+      ctx.lineTo(w, gy);
+      ctx.stroke();
+    }
+
+    const capacity = simulation.historyCapacity;
+    const startIdx = (hist.head - count + capacity) % capacity;
+
+    // Find scale limits
+    let maxBio = 1000;
+    for (let i = 0; i < count; i++) {
+      const idx = (startIdx + i) % capacity;
+      if (hist.biomass[idx] > maxBio) maxBio = hist.biomass[idx];
+    }
+    const maxPop = Math.max(100, simulation.maxPopulation || 800);
+
+    const padTop = 8;
+    const padBottom = 8;
+    const graphH = h - padTop - padBottom;
+    const stepX = (w - 30) / Math.max(1, count - 1);
+
+    // 1. Draw Biomass curve (Green)
+    ctx.beginPath();
+    for (let i = 0; i < count; i++) {
+      const idx = (startIdx + i) % capacity;
+      const x = i * stepX;
+      const y = h - padBottom - (hist.biomass[idx] / maxBio) * graphH;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = '#7ee787';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // 2. Draw Population curve (Cyan)
+    ctx.beginPath();
+    let latestPopY = h / 2;
+    for (let i = 0; i < count; i++) {
+      const idx = (startIdx + i) % capacity;
+      const x = i * stepX;
+      const y = h - padBottom - (hist.pop[idx] / maxPop) * graphH;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+      if (i === count - 1) latestPopY = y;
+    }
+    ctx.strokeStyle = '#79c0ff';
+    ctx.lineWidth = 1.8;
+    ctx.stroke();
+
+    // Latest Population Endpoint indicator
+    const lastX = (count - 1) * stepX;
+    ctx.fillStyle = '#79c0ff';
+    ctx.beginPath();
+    ctx.arc(lastX, latestPopY, 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // End label for current pop
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#a5d6ff';
+    ctx.fillText(`${simulation.agents.length}`, lastX + 5, Math.max(12, Math.min(h - 4, latestPopY + 3)));
+  }
+
+  /**
+   * Render real-time Generation Distribution Histogram & Ascent Trend
+   */
+  static renderGenerationGraph(canvas, simulation) {
+    if (!canvas || !simulation) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width;
+    const h = canvas.height;
+
+    ctx.fillStyle = '#06090e';
+    ctx.fillRect(0, 0, w, h);
+
+    const counts = simulation.stats.generationCounts;
+    const totalPop = simulation.agents.length;
+
+    if (!counts || counts.length === 0 || totalPop === 0) {
+      ctx.fillStyle = '#484f58';
+      ctx.font = '10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('No generation data available', w / 2, h / 2 + 3);
+      return;
+    }
+
+    // Gridlines
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, h / 2);
+    ctx.lineTo(w, h / 2);
+    ctx.stroke();
+
+    // Draw Generation Distribution Bars
+    const maxGenEntries = Math.min(12, counts.length);
+    const displayedCounts = counts.slice(-maxGenEntries);
+
+    let maxSingleCount = 1;
+    for (let i = 0; i < displayedCounts.length; i++) {
+      if (displayedCounts[i].count > maxSingleCount) maxSingleCount = displayedCounts[i].count;
+    }
+
+    const barAreaW = w - 16;
+    const barSlot = barAreaW / displayedCounts.length;
+    const barWidth = Math.max(6, Math.min(22, barSlot - 4));
+    const maxBarH = h - 26;
+
+    for (let i = 0; i < displayedCounts.length; i++) {
+      const item = displayedCounts[i];
+      const slotCenter = 8 + i * barSlot + barSlot / 2;
+      const barH = Math.max(3, (item.count / maxSingleCount) * maxBarH);
+      const x = slotCenter - barWidth / 2;
+      const y = h - 14 - barH;
+
+      // Color based on generation hierarchy
+      const colorRatio = (item.gen % 10) / 10;
+      const r = Math.round(130 + colorRatio * 90);
+      const g = Math.round(110 + (1 - colorRatio) * 100);
+      const b = 255;
+      ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+
+      // Draw rounded top bar
+      ctx.beginPath();
+      ctx.roundRect(x, y, barWidth, barH, [3, 3, 0, 0]);
+      ctx.fill();
+
+      // Generation label below
+      ctx.fillStyle = '#8b949e';
+      ctx.font = '8px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(`G${item.gen}`, slotCenter, h - 3);
+
+      // Percentage or count above if tall enough
+      if (barH > 18) {
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '7px monospace';
+        const pct = Math.round((item.count / totalPop) * 100);
+        ctx.fillText(`${pct}%`, slotCenter, y + 10);
+      }
+    }
+
+    // Overlay Evolutionary Ascent Sparkline (Avg Gen over historical samples)
+    const hist = simulation.history;
+    const sampleCount = hist ? hist.count : 0;
+    if (sampleCount >= 2) {
+      const capacity = simulation.historyCapacity;
+      const startIdx = (hist.head - sampleCount + capacity) % capacity;
+      const maxGenInHistory = Math.max(2, simulation.stats.generationMax);
+      const stepX = (w - 20) / Math.max(1, sampleCount - 1);
+
+      ctx.beginPath();
+      for (let i = 0; i < sampleCount; i++) {
+        const idx = (startIdx + i) % capacity;
+        const x = 10 + i * stepX;
+        const y = 8 + (1.0 - (hist.avgGen[idx] / maxGenInHistory)) * 36;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = 'rgba(255, 166, 87, 0.85)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+  }
 }
 
