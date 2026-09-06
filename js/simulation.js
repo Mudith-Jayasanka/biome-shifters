@@ -218,10 +218,10 @@ export class Simulation {
    * Preserve high-performing brains for extinction recovery
    */
   recordPotentialElite(agent) {
-    if (agent.age < 120 && agent.generation < 2) return;
+    if (agent.age < 60 && agent.biomassEaten < 0.5) return;
 
-    // Score based on lifespan and generation
-    const fitness = agent.age + agent.generation * 100;
+    // True biological Darwinian fitness: lifespan + biomass consumed + offspring raised
+    const fitness = agent.age + (agent.biomassEaten * 25) + (agent.offspringCount * 300);
     const brainCopy = agent.brain.clone();
 
     this.eliteArchive.push({
@@ -291,9 +291,9 @@ export class Simulation {
         continue;
       }
 
-      // Check reproduction
+      // Check reproduction (passing this for sexual mate lookup)
       if (this.agents.length + newChildren.length < this.maxPopulation) {
-        const child = agent.checkReproduction(this.grid, this.nextAgentId);
+        const child = agent.checkReproduction(this.grid, this.nextAgentId, this);
         if (child) {
           this.nextAgentId++;
           newChildren.push(child);

@@ -19,8 +19,8 @@ function randomGaussian() {
 
 export class NeuralNet {
   constructor(
-    inputSize = CONFIG.NN_INPUT_SIZE || 29,
-    hiddenSize = CONFIG.NN_HIDDEN_SIZE || 16,
+    inputSize = CONFIG.NN_INPUT_SIZE || 37,
+    hiddenSize = CONFIG.NN_HIDDEN_SIZE || 24,
     outputSize = CONFIG.NN_OUTPUT_SIZE || 9
   ) {
     this.inputSize = inputSize;
@@ -126,15 +126,22 @@ export class NeuralNet {
   }
 
   /**
-   * Mutate neural network parameters with Gaussian perturbation
+   * Mutate neural network parameters with Gaussian perturbation and anti-saturation decay
    * @param {number} rate Probability of mutating each weight
    * @param {number} strength Standard deviation of perturbation
    */
   mutate(rate = 0.08, strength = 0.2) {
+    const scale = Math.sqrt(2.0 / (this.inputSize + this.hiddenSize));
     const perturb = (arr) => {
       for (let i = 0; i < arr.length; i++) {
         if (Math.random() < rate) {
-          arr[i] += randomGaussian() * strength;
+          // 5% chance of resetting to fresh Xavier initialization to break out of dead zones
+          if (Math.random() < 0.05) {
+            arr[i] = (Math.random() * 2 - 1) * scale;
+          } else {
+            // Slight weight decay (0.995) to prevent infinite drift into +/- 8.0 clamp
+            arr[i] = (arr[i] * 0.995) + randomGaussian() * strength;
+          }
           // Clamp weights to prevent explosive numerical instability
           if (arr[i] > 8.0) arr[i] = 8.0;
           else if (arr[i] < -8.0) arr[i] = -8.0;

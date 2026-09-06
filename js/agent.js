@@ -20,9 +20,14 @@ export class Agent {
     this.isDead = false;
 
     this.brain = brain || new NeuralNet();
-    this.sensorBuffer = new Float32Array(CONFIG.NN_INPUT_SIZE || 29);
+    this.sensorBuffer = new Float32Array(CONFIG.NN_INPUT_SIZE || 37);
     this.lastActionResult = 1.0;
     this.lastAction = ACTIONS.IDLE;
+    this.lastMoveDir = -1; // 0=N, 1=S, 2=E, 3=W, -1=none
+
+    // Biological success telemetry
+    this.biomassEaten = 0;
+    this.offspringCount = 0;
 
     // Lineage and visual identification
     this.color = this.generateColor();
@@ -79,60 +84,92 @@ export class Agent {
       s[4 + d] = grid.inBounds(nx[d], ny[d]) ? grid.getMoisture(nx[d], ny[d]) : 0.0;
     }
 
-    // [8..11]: Local Biomass (Out-of-bounds void has 0.0 food)
+    // [8..11]: Immediate Biomass (dist = 1)
     for (let d = 0; d < 4; d++) {
       s[8 + d] = grid.inBounds(nx[d], ny[d]) ? grid.getBiomass(nx[d], ny[d]) : 0.0;
     }
 
-    // [12..15]: Local Trample Compaction (Out-of-bounds is impassable, 1.0)
+    // [12..15]: Extended Food Raycasts (N, S, E, W, dist = 2..4)
+    // Allows agents to smell/see vegetation patches from afar and navigate toward food
+    const rayDx = [0, 0, 1, -1];
+    const rayDy = [-1, 1, 0, 0];
+    const rayWeights = [0.45, 0.35, 0.20];
     for (let d = 0; d < 4; d++) {
-      s[12 + d] = grid.inBounds(nx[d], ny[d]) ? grid.getTrample(nx[d], ny[d]) : 1.0;
+      let rayFood = 0;
+      for (let step = 1; step <= 3; step++) {
+        const rx = x + rayDx[d] * (step + 1);
+        const ry = y + rayDy[d] * (step + 1);
+        if (!grid.inBounds(rx, ry)) break;
+        rayFood += grid.getBiomass(rx, ry) * rayWeights[step - 1];
+      }
+      s[12 + d] = Math.min(1.0, rayFood);
     }
 
-    // [16..19]: Local Scent
+    // [16..19]: Local Trample Compaction (Out-of-bounds is impassable, 1.0)
     for (let d = 0; d < 4; d++) {
-      s[16 + d] = grid.inBounds(nx[d], ny[d]) ? grid.getScent(nx[d], ny[d]) : 0.0;
+      s[16 + d] = grid.inBounds(nx[d], ny[d]) ? grid.getTrample(nx[d], ny[d]) : 1.0;
     }
 
-    // [20..23]: Neighbor Occupancy & Obstacles (1.0 if occupied OR boundary wall, 0.0 if free)
+    // [20..23]: Local Scent
+    for (let d = 0; d < 4; d++) {
+      s[20 + d] = grid.inBounds(nx[d], ny[d]) ? grid.getScent(nx[d], ny[d]) : 0.0;
+    }
+
+    // [24..27]: Neighbor Occupancy & Obstacles (1.0 if occupied OR boundary wall, 0.0 if free)
     for (let d = 0; d < 4; d++) {
       if (!grid.inBounds(nx[d], ny[d])) {
-        s[20 + d] = 1.0; // Wall is an impassable physical obstacle
+        s[24 + d] = 1.0; // Wall is an impassable physical obstacle
       } else {
         const occ = grid.getOccupant(nx[d], ny[d]);
-        s[20 + d] = (occ >= 0 && occ !== this.id) ? 1.0 : 0.0;
+        s[24 + d] = (occ >= 0 && occ !== this.id) ? 1.0 : 0.0;
       }
     }
 
-    // [24]: Current Tile Biomass
-    s[24] = grid.getBiomass(x, y);
+    // [28]: Current Tile Biomass
+    s[28] = grid.getBiomass(x, y);
 
-    // [25]: Current Tile Water Depth
-    s[25] = grid.getWater(x, y);
+    // [29]: Current Tile Water Depth
+    s[29] = grid.getWater(x, y);
 
-    // [26]: Agent Energy Ratio [0, 1]
-    s[26] = Math.min(1.0, this.energy / CONFIG.MAX_ENERGY);
+    // [30]: Agent Energy Ratio [0, 1]
+    s[30] = Math.min(1.0, this.energy / CONFIG.MAX_ENERGY);
 
-    // [27]: Agent Age Ratio [0, 1]
-    s[27] = Math.min(1.0, this.age / CONFIG.MAX_AGE);
+    // [31]: Agent Age Ratio [0, 1]
+    s[31] = Math.min(1.0, this.age / CONFIG.MAX_AGE);
 
-    // [28]: Feedback of last action success
-    s[28] = this.lastActionResult;
+    // [32]: Feedback of last action success
+    s[32] = this.lastActionResult;
+
+    // [33..36]: Self-Motion / Momentum Heading Vector (one-hot for last move direction)
+    s[33] = (this.lastMoveDir === 0) ? 1.0 : 0.0; // Moved North
+    s[34] = (this.lastMoveDir === 1) ? 1.0 : 0.0; // Moved South
+    s[35] = (this.lastMoveDir === 2) ? 1.0 : 0.0; // Moved East
+    s[36] = (this.lastMoveDir === 3) ? 1.0 : 0.0; // Moved West
   }
 
   /**
-   * Decode neural logits into chosen action (Argmax)
+   * Decode neural logits into chosen action with temperature-controlled Softmax sampling
    */
-  selectAction(logits) {
-    let maxVal = -Infinity;
-    let bestAction = ACTIONS.IDLE;
+  selectAction(logits, temperature = 0.5) {
+    let maxLogit = -Infinity;
     for (let i = 0; i < logits.length; i++) {
-      if (logits[i] > maxVal) {
-        maxVal = logits[i];
-        bestAction = i;
-      }
+      if (logits[i] > maxLogit) maxLogit = logits[i];
     }
-    return bestAction;
+
+    let sumExp = 0;
+    const invTemp = 1.0 / Math.max(0.1, temperature);
+    for (let i = 0; i < logits.length; i++) {
+      sumExp += Math.exp((logits[i] - maxLogit) * invTemp);
+    }
+
+    const r = Math.random() * sumExp;
+    let accum = 0;
+    for (let i = 0; i < logits.length; i++) {
+      accum += Math.exp((logits[i] - maxLogit) * invTemp);
+      if (r <= accum) return i;
+    }
+
+    return ACTIONS.IDLE;
   }
 
   /**
@@ -156,11 +193,11 @@ export class Agent {
       case ACTIONS.MOVE_SOUTH:
       case ACTIONS.MOVE_EAST:
       case ACTIONS.MOVE_WEST: {
-        let dx = 0, dy = 0;
-        if (action === ACTIONS.MOVE_NORTH) dy = -1;
-        else if (action === ACTIONS.MOVE_SOUTH) dy = 1;
-        else if (action === ACTIONS.MOVE_EAST) dx = 1;
-        else if (action === ACTIONS.MOVE_WEST) dx = -1;
+        let dx = 0, dy = 0, moveDir = 0;
+        if (action === ACTIONS.MOVE_NORTH) { dy = -1; moveDir = 0; }
+        else if (action === ACTIONS.MOVE_SOUTH) { dy = 1; moveDir = 1; }
+        else if (action === ACTIONS.MOVE_EAST) { dx = 1; moveDir = 2; }
+        else if (action === ACTIONS.MOVE_WEST) { dx = -1; moveDir = 3; }
 
         const targetX = this.x + dx;
         const targetY = this.y + dy;
@@ -168,6 +205,7 @@ export class Agent {
         // Boundary check
         if (!grid.inBounds(targetX, targetY)) {
           this.energy -= CONFIG.MOVE_ENERGY_BASE * 0.5; // Bump into wall penalty
+          this.lastMoveDir = -1;
           success = 0.0;
           break;
         }
@@ -176,6 +214,7 @@ export class Agent {
         const targetOccupant = grid.getOccupant(targetX, targetY);
         if (targetOccupant >= 0 && targetOccupant !== this.id) {
           this.energy -= CONFIG.MOVE_ENERGY_BASE * 0.5; // Collision penalty
+          this.lastMoveDir = -1;
           success = 0.0;
           break;
         }
@@ -200,6 +239,18 @@ export class Agent {
           moveCost *= 0.85; // Downhill relief
         }
 
+        // Momentum inertia bonus & 180-degree turn resistance (prevents spastic 1-tile oscillation)
+        if (this.lastMoveDir === moveDir) {
+          moveCost *= 0.85; // Inertia bonus for continuing along same vector
+        } else if (
+          (this.lastMoveDir === 0 && moveDir === 1) ||
+          (this.lastMoveDir === 1 && moveDir === 0) ||
+          (this.lastMoveDir === 2 && moveDir === 3) ||
+          (this.lastMoveDir === 3 && moveDir === 2)
+        ) {
+          moveCost *= 1.30; // Resistance cost to immediately reverse direction
+        }
+
         this.energy -= moveCost;
 
         // Leave trampled trail on departed cell
@@ -211,11 +262,13 @@ export class Agent {
         this.y = targetY;
         grid.setOccupant(this.x, this.y, this.id);
 
+        this.lastMoveDir = moveDir;
         success = 1.0;
         break;
       }
 
       case ACTIONS.GRAZE: {
+        this.lastMoveDir = -1;
         const curBiomass = grid.getBiomass(this.x, this.y);
         if (curBiomass > 0.02) {
           const biteSize = Math.min(curBiomass, 0.35);
@@ -223,6 +276,7 @@ export class Agent {
           
           grid.setBiomass(this.x, this.y, curBiomass - biteSize);
           this.energy = Math.min(CONFIG.MAX_ENERGY, this.energy + energyGained);
+          this.biomassEaten += biteSize;
           success = 1.0;
         } else {
           // Attempted to graze on barren land
@@ -299,12 +353,13 @@ export class Agent {
   }
 
   /**
-   * Check if ready to reproduce and create mutated offspring
+   * Check if ready to reproduce and create offspring (sexual crossover if mate nearby, else asexual clone)
    * @param {Grid} grid
    * @param {number} nextAgentId
+   * @param {Simulation|null} simulation Optional simulation ref to locate nearby mates
    * @returns {Agent|null} New child agent or null if reproduction was not possible
    */
-  checkReproduction(grid, nextAgentId) {
+  checkReproduction(grid, nextAgentId, simulation = null) {
     if (this.isDead || this.energy < CONFIG.REPRODUCTION_THRESHOLD) {
       return null;
     }
@@ -334,14 +389,44 @@ export class Agent {
         const childEnergy = this.energy * CONFIG.REPRODUCTION_SPLIT;
         this.energy -= childEnergy;
 
-        // Clone and mutate neural network
-        const childBrain = this.brain.clone();
+        // Search for a nearby mature mate within radius 2 for sexual crossover
+        let mateBrain = null;
+        if (simulation && simulation.getAgentById) {
+          for (let my = -2; my <= 2; my++) {
+            for (let mx = -2; mx <= 2; mx++) {
+              if (mx === 0 && my === 0) continue;
+              const tx = this.x + mx;
+              const ty = this.y + my;
+              if (grid.inBounds(tx, ty)) {
+                const occId = grid.getOccupant(tx, ty);
+                if (occId > 0 && occId !== this.id) {
+                  const mate = simulation.getAgentById(occId);
+                  if (mate && !mate.isDead && mate.age >= 30) {
+                    mateBrain = mate.brain;
+                    break;
+                  }
+                }
+              }
+            }
+            if (mateBrain) break;
+          }
+        }
+
+        // Sexual crossover if mate found, otherwise asexual clone
+        let childBrain;
+        if (mateBrain) {
+          childBrain = NeuralNet.crossover(this.brain, mateBrain);
+        } else {
+          childBrain = this.brain.clone();
+        }
         childBrain.mutate(CONFIG.MUTATION_RATE_DEFAULT, 0.2);
 
         const child = new Agent(nextAgentId, cx, cy, childBrain);
         child.energy = childEnergy;
         child.generation = this.generation + 1;
         child.species = this.species;
+
+        this.offspringCount++;
 
         // Place on grid
         grid.setOccupant(cx, cy, child.id);
@@ -376,6 +461,8 @@ export class Agent {
       generation: this.generation,
       species: this.species,
       color: this.color,
+      biomassEaten: this.biomassEaten,
+      offspringCount: this.offspringCount,
       brain: this.brain.toJSON()
     };
   }
@@ -387,6 +474,8 @@ export class Agent {
     agent.age = json.age;
     agent.generation = json.generation;
     agent.species = json.species;
+    if (json.biomassEaten !== undefined) agent.biomassEaten = json.biomassEaten;
+    if (json.offspringCount !== undefined) agent.offspringCount = json.offspringCount;
     if (json.color) agent.color = json.color;
     return agent;
   }

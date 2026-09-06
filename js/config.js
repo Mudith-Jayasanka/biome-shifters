@@ -43,17 +43,17 @@ export const CONFIG = {
   // Agent Energetics
   INITIAL_ENERGY: 100,
   MAX_ENERGY: 250,
-  REPRODUCTION_THRESHOLD: 135,
+  REPRODUCTION_THRESHOLD: 115,
   REPRODUCTION_SPLIT: 0.5,   // Parent gives 50% energy to child
-  BASAL_METABOLIC_DRAIN: 0.15,
-  MOVE_ENERGY_BASE: 0.4,
+  BASAL_METABOLIC_DRAIN: 0.20,
+  MOVE_ENERGY_BASE: 0.28,
   TERRAFORM_ENERGY_COST: 3.5,
-  GRAZE_MAX_INTAKE: 18.0,    // Max energy extracted from 1.0 biomass
+  GRAZE_MAX_INTAKE: 20.0,    // Max energy extracted from 1.0 biomass
   MAX_AGE: 1800,             // Max lifespan in ticks
 
   // Neural Network Dimensions
-  NN_INPUT_SIZE: 29,
-  NN_HIDDEN_SIZE: 16,
+  NN_INPUT_SIZE: 37,
+  NN_HIDDEN_SIZE: 24,
   NN_OUTPUT_SIZE: 9,
   MUTATION_RATE_DEFAULT: 0.08,
 

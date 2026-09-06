@@ -31,12 +31,11 @@ Before writing or editing code for **ANY** implementation request (whether a new
    - Implement the code as specified in the registered task document.
    - Upon completion and verification, update the task status in `tasks/TASK_XX_...md` to `DONE`.
    - Present the completed work and verification to the user.
-   - **Git Add, Commit, and Push**: ONLY after the user has confirmed that a task is finished, stage, commit, and push:
+   - **Git Add, Commit, and Push**: ONLY after the user has confirmed that a task is finished, stage, commit, and push using the safe helper script outside the sandbox (`BypassSandbox: true`):
      ```bash
-     git add -A
-     git commit -m "TASK_XX: <short summary>"
-     git push
+     ./scripts/commit_task.sh "TASK_XX: <short summary>"
      ```
+     **CRITICAL ANTI-CORRUPTION RULE**: NEVER execute `git add`, `git commit`, or `git push` inside the read-only sandbox container (`BypassSandbox: false`). The sandbox container mounts `.git` as read-only; any attempted write to `.git/index.lock` fails mid-flight and truncates `.git/index` to a 0-byte corrupted file. Always run `./scripts/commit_task.sh` with `BypassSandbox: true`.
      **Do NOT git add, commit, or push proactively before the user confirms completion.**
 
 ---
@@ -65,7 +64,7 @@ Before writing or editing code for **ANY** implementation request (whether a new
 4. **Zero-Allocation in Simulation Loops**: Avoid memory allocations in high-frequency loops (e.g. inside `tick()` or `draw()`). Do not instantiate objects (`new ...`), allocate array literals, or trigger garbage collection inside per-cell or per-agent tick steps. Reuse preallocated buffers.
 5. **Message Schema Discipline**: All data transferred between threads or serialized to disk must use documented schemas (plain JSON objects or transferable TypedArrays, no raw class instances).
 6. **Task Isolation**: Each task file defines a clear input state and output state. Never assume a future task has been implemented.
-7. **Strict Git Discipline**: Always run `git add`, `git commit -m "TASK_XX: <description>"`, and `git push` ONLY AFTER the user has confirmed that a task is finished.
+7. **Strict Git Discipline & Sandbox Protection**: Always run `./scripts/commit_task.sh "TASK_XX: <description>"` ONLY AFTER the user has confirmed that a task is finished, and ALWAYS with `BypassSandbox: true`. Running git write commands inside the sandbox truncates `.git/index` to 0 bytes.
 
 ---
 
