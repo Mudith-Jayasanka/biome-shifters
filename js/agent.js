@@ -65,34 +65,43 @@ export class Agent {
     const ny = [y - 1, y + 1, y, y];
 
     // [0..3]: Local Slope (Elevation differences: neighbor - current)
+    // Out-of-bounds neighbors register as an impassable sheer cliff barrier (+1.0)
     for (let d = 0; d < 4; d++) {
-      s[d] = (grid.getElevation(nx[d], ny[d]) - curElev) * 2.0; // Scaled to [-1, 1]
+      if (!grid.inBounds(nx[d], ny[d])) {
+        s[d] = 1.0;
+      } else {
+        s[d] = (grid.getElevation(nx[d], ny[d]) - curElev) * 2.0; // Scaled to [-1, 1]
+      }
     }
 
-    // [4..7]: Local Moisture
+    // [4..7]: Local Moisture (Out-of-bounds has 0.0 moisture)
     for (let d = 0; d < 4; d++) {
-      s[4 + d] = grid.getMoisture(nx[d], ny[d]);
+      s[4 + d] = grid.inBounds(nx[d], ny[d]) ? grid.getMoisture(nx[d], ny[d]) : 0.0;
     }
 
-    // [8..11]: Local Biomass
+    // [8..11]: Local Biomass (Out-of-bounds void has 0.0 food)
     for (let d = 0; d < 4; d++) {
-      s[8 + d] = grid.getBiomass(nx[d], ny[d]);
+      s[8 + d] = grid.inBounds(nx[d], ny[d]) ? grid.getBiomass(nx[d], ny[d]) : 0.0;
     }
 
-    // [12..15]: Local Trample Compaction
+    // [12..15]: Local Trample Compaction (Out-of-bounds is impassable, 1.0)
     for (let d = 0; d < 4; d++) {
-      s[12 + d] = grid.getTrample(nx[d], ny[d]);
+      s[12 + d] = grid.inBounds(nx[d], ny[d]) ? grid.getTrample(nx[d], ny[d]) : 1.0;
     }
 
     // [16..19]: Local Scent
     for (let d = 0; d < 4; d++) {
-      s[16 + d] = grid.getScent(nx[d], ny[d]);
+      s[16 + d] = grid.inBounds(nx[d], ny[d]) ? grid.getScent(nx[d], ny[d]) : 0.0;
     }
 
-    // [20..23]: Neighbor Occupancy (1.0 if occupied, 0.0 if free)
+    // [20..23]: Neighbor Occupancy & Obstacles (1.0 if occupied OR boundary wall, 0.0 if free)
     for (let d = 0; d < 4; d++) {
-      const occ = grid.getOccupant(nx[d], ny[d]);
-      s[20 + d] = (occ >= 0 && occ !== this.id) ? 1.0 : 0.0;
+      if (!grid.inBounds(nx[d], ny[d])) {
+        s[20 + d] = 1.0; // Wall is an impassable physical obstacle
+      } else {
+        const occ = grid.getOccupant(nx[d], ny[d]);
+        s[20 + d] = (occ >= 0 && occ !== this.id) ? 1.0 : 0.0;
+      }
     }
 
     // [24]: Current Tile Biomass
