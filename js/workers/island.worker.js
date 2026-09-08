@@ -45,7 +45,7 @@ let islandId = 0;
 let isPaused = false;
 let speed = 1;
 let isTurbo = false;
-let perfMode = 'standard';
+let perfMode = 'turbo';
 let isRunning = false;
 let loopTimer = null;
 
@@ -88,31 +88,30 @@ function runLoopStep() {
   if (!isRunning) return;
 
   if (!isPaused && simulation) {
-    if (perfMode === 'eco') {
-      simulation.tick();
-      tickCounter++;
-    } else if (perfMode === 'standard') {
-      simulation.tick();
-      tickCounter++;
-    } else if (perfMode === 'turbo') {
-      if (isTurbo) {
-        // Execute in batches to allow message handling
+    if (isTurbo) {
+      if (perfMode === 'eco') {
+        simulation.tick();
+        tickCounter++;
+      } else if (perfMode === 'standard') {
+        simulation.tick();
+        tickCounter++;
+      } else {
+        // perfMode === 'turbo' (uncapped)
         const batchSize = 25;
         for (let i = 0; i < batchSize; i++) {
           if (isPaused || !isRunning) break;
           simulation.tick();
           tickCounter++;
         }
-      } else {
-        for (let i = 0; i < speed; i++) {
-          if (isPaused || !isRunning) break;
-          simulation.tick();
-          tickCounter++;
-        }
       }
     } else {
-      simulation.tick();
-      tickCounter++;
+      // Normal speed multiplier (1x, 2x, 5x, 10x)
+      const ticksToRun = perfMode === 'eco' ? 1 : (perfMode === 'standard' ? 1 : speed);
+      for (let i = 0; i < ticksToRun; i++) {
+        if (isPaused || !isRunning) break;
+        simulation.tick();
+        tickCounter++;
+      }
     }
   }
 
@@ -266,7 +265,7 @@ self.onmessage = function (e) {
       isPaused = Boolean(msg.isPaused);
       speed = msg.speed || 1;
       isTurbo = Boolean(msg.isTurbo);
-      perfMode = msg.perfMode || 'standard';
+      perfMode = msg.perfMode || 'turbo';
       if (msg.isRadiationMode) {
         simulation.setRadiationMode(true, msg.radiationMultiplier || 4.0);
       }
@@ -290,7 +289,7 @@ self.onmessage = function (e) {
     }
 
     case 'SET_PERF_MODE': {
-      perfMode = msg.perfMode || 'standard';
+      perfMode = msg.perfMode || 'turbo';
       break;
     }
 

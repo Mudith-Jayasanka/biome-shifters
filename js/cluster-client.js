@@ -21,7 +21,7 @@ export class ClusterClient {
     this.isHeartbeatPending = false;
     this.isClusterMigrating = false;
     this.isHidden = false;
-    this.perfMode = options.perfMode || 'standard';
+    this.perfMode = options.perfMode || 'turbo';
     this.isSnapshotDispatching = false;
   }
 
@@ -525,7 +525,7 @@ export class ClusterClient {
     const mult = Number(multiplier) || 4.0;
 
     // Apply locally if this node manages the island for instant UI response
-    if (this.islandManager && this.islandManager.workers.has(targetId)) {
+    if (this.islandManager && (typeof this.islandManager.hasIsland === 'function' ? this.islandManager.hasIsland(targetId) : this.islandManager.workerMap?.has(targetId))) {
       this.islandManager.setIslandRadiation(targetId, isTargetEnabled, mult);
     }
 

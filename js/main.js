@@ -100,7 +100,8 @@ class App {
     // Multi-Core 8-Island Web Worker Coordinator for Host
     this.islandManager = new IslandManager({
       islandCount: 8,
-      migrationInterval: 800
+      migrationInterval: 800,
+      perfMode: 'turbo'
     });
     this.islandManager.setClusterClient(this.clusterClient);
     this.islandManager.onMigrationEvent = (event) => {
@@ -814,6 +815,11 @@ class App {
         if (!nodeId || !perfMode) return;
         try {
           await this.clusterClient.setNodePerf(nodeId, perfMode);
+          if (nodeId === this.clusterClient.nodeId || select.closest('tr')?.classList.contains('host-row')) {
+            if (this.islandManager && typeof this.islandManager.setPerfMode === 'function') {
+              this.islandManager.setPerfMode(perfMode);
+            }
+          }
           await this.refreshClusterNodes();
         } catch (err) {
           alert(`Failed to update performance limiter: ${err.message}`);
@@ -1155,17 +1161,14 @@ class App {
             }).join('');
           }
 
-          let perfHtml = '<span class="perf-badge host">Host (Default)</span>';
-          if (!isHost) {
-            const currentPerf = n.perfMode || 'standard';
-            perfHtml = `
-              <select class="select-cluster-perf" data-id="${n.nodeId}">
-                <option value="eco" ${currentPerf === 'eco' ? 'selected' : ''}>🌱 Eco (~30 TPS)</option>
-                <option value="standard" ${currentPerf === 'standard' ? 'selected' : ''}>⚡ Standard (60 TPS)</option>
-                <option value="turbo" ${currentPerf === 'turbo' ? 'selected' : ''}>🚀 Turbo (Max)</option>
-              </select>
-            `;
-          }
+          const currentPerf = n.perfMode || (isHost ? 'turbo' : 'standard');
+          const perfHtml = `
+            <select class="select-cluster-perf" data-id="${n.nodeId}">
+              <option value="eco" ${currentPerf === 'eco' ? 'selected' : ''}>🌱 Eco (~30 TPS)</option>
+              <option value="standard" ${currentPerf === 'standard' ? 'selected' : ''}>⚡ Standard (60 TPS)</option>
+              <option value="turbo" ${currentPerf === 'turbo' ? 'selected' : ''}>🚀 Turbo (${isHost ? 'Uncapped' : 'Max'})</option>
+            </select>
+          `;
 
           let actionsHtml = '<span class="text-muted text-xs">Host Admin</span>';
           if (!isHost) {

@@ -135,7 +135,7 @@ class ClusterManager:
                 'tps': 0,
                 'population': 0,
                 'telemetry': [],
-                'perfMode': 'standard'
+                'perfMode': 'turbo'
             }
 
     @classmethod

@@ -119,6 +119,12 @@ TASK_47 (LAN Cluster Dashboard Horizontal Island Cameras Sub-Row)
 TASK_48 (Native Grid Camera Preview Resolution & Fixed Quality)
    ↓
 TASK_49 (Lossless PNG Camera Preview)
+   ↓
+TASK_50 (Fix Radiation Toggle Worker Map Lookup)
+   ↓
+TASK_51 (Performance Limiter Decoupling & Host Uncapped Execution)
+   ↓
+TASK_52 (Island Worker MessageChannel Turbo Pump for Maximum CPU Saturation)
 ```
 
 ---
@@ -176,6 +182,10 @@ TASK_49 (Lossless PNG Camera Preview)
 | **47** | `TASK_47_lan_dashboard_horizontal_island_cameras_subrow.md` | `style.css`, `index.html`, `js/main.js` | `DONE` | Dedicated horizontal cameras sub-row per node record, eliminating vertical bloating. |
 | **48** | `TASK_48_native_grid_camera_preview_resolution.md` | `js/config.js`, `js/workers/island.worker.js`, `js/island-manager.js`, `js/cluster-client.js`, `js/main.js` | `DONE` | Native 128×128 grid camera preview with fixed 0.75 JPEG quality, preserving 1.5s framerate. |
 | **49** | `TASK_49_lossless_png_camera_preview.md` | `js/config.js`, `js/island-manager.js` | `DONE` | Lossless PNG camera preview encoding for razor-sharp pixel-perfect grid viewing. |
+| **50** | `TASK_50_fix_radiation_toggle_worker_map_lookup.md` | `js/cluster-client.js`, `js/island-manager.js` | `DONE` | Fix TypeError: this.islandManager.workers.has is not a function when toggling island radiation mode. |
+| **51** | `TASK_51_perf_limiter_decoupling_and_host_turbo_default.md` | `js/workers/island.worker.js`, `server.py`, `js/cluster-client.js`, `js/island-manager.js`, `js/main.js` | `DONE` | Decouple simulation speed / Turbo from perf limiter, and set Host default to uncapped Turbo. |
+| **52** | `TASK_52_island_worker_messagechannel_turbo_pump.md` | `js/workers/island.worker.js`, `js/config.js` | `TODO` | Replace 4ms-clamped setTimeout in island worker with MessageChannel pump for 100% CPU saturation. |
+
 
 
 

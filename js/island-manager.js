@@ -55,7 +55,7 @@ export class IslandManager {
     this.isPaused = false;
     this.speed = 1;
     this.isTurbo = false;
-    this.perfMode = config.perfMode || 'standard';
+    this.perfMode = config.perfMode || 'turbo';
     this.irradiatedIslands = new Set(config.irradiatedIslands || []);
 
     // Cross-Island Elite Migration state
@@ -346,6 +346,11 @@ export class IslandManager {
 
   isIslandIrradiated(islandId) {
     return this.irradiatedIslands.has(parseInt(islandId, 10));
+  }
+
+  hasIsland(islandId) {
+    const id = parseInt(islandId, 10);
+    return !isNaN(id) && this.workerMap.has(id);
   }
 
   /**
