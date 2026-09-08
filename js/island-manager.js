@@ -6,6 +6,8 @@
  * Supports arbitrary island ID ranges (e.g. 0..7 on Host, 8..11 on Contributor).
  */
 
+import { CONFIG } from './config.js';
+
 export class IslandManager {
   constructor(config = {}) {
     // Support arbitrary island ID arrays (e.g. [8, 9, 10, 11]) or count + start offset
@@ -80,8 +82,8 @@ export class IslandManager {
     this.snapshotCallbacks = new Map();
     this.snapshotCanvas = typeof document !== 'undefined' ? document.createElement('canvas') : null;
     if (this.snapshotCanvas) {
-      this.snapshotCanvas.width = 64;
-      this.snapshotCanvas.height = 64;
+      this.snapshotCanvas.width = CONFIG.SNAPSHOT_WIDTH || CONFIG.GRID_WIDTH || 128;
+      this.snapshotCanvas.height = CONFIG.SNAPSHOT_HEIGHT || CONFIG.GRID_HEIGHT || 128;
     }
 
     this.initWorkers(config.baseSeed || Date.now());
@@ -187,8 +189,8 @@ export class IslandManager {
 
       case 'SNAPSHOT_READY': {
         const id = msg.islandId;
-        const w = msg.width || 64;
-        const h = msg.height || 64;
+        const w = msg.width || CONFIG.SNAPSHOT_WIDTH || CONFIG.GRID_WIDTH || 128;
+        const h = msg.height || CONFIG.SNAPSHOT_HEIGHT || CONFIG.GRID_HEIGHT || 128;
         let dataUrl = '';
 
         if (this.snapshotCanvas && msg.pixels) {
@@ -199,7 +201,7 @@ export class IslandManager {
           const ctx = this.snapshotCanvas.getContext('2d');
           const imgData = new ImageData(new Uint8ClampedArray(msg.pixels), w, h);
           ctx.putImageData(imgData, 0, 0);
-          dataUrl = this.snapshotCanvas.toDataURL('image/jpeg', 0.65);
+          dataUrl = this.snapshotCanvas.toDataURL(CONFIG.SNAPSHOT_FORMAT || 'image/png');
         }
 
         const snapshotRecord = {
@@ -686,7 +688,7 @@ export class IslandManager {
   /**
    * Request an on-demand satellite snapshot for a local island
    */
-  requestIslandSnapshot(islandId, width = 64, height = 64, timeoutMs = 2500) {
+  requestIslandSnapshot(islandId, width = (CONFIG.SNAPSHOT_WIDTH || CONFIG.GRID_WIDTH || 128), height = (CONFIG.SNAPSHOT_HEIGHT || CONFIG.GRID_HEIGHT || 128), timeoutMs = 2500) {
     const targetId = parseInt(islandId, 10);
     const worker = this.workerMap.get(targetId);
     if (!worker) {

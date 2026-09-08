@@ -111,6 +111,14 @@ TASK_43 (Harsh Coastal Perimeter & Anti-Corner Eviction)
 TASK_44 (Subterranean Root Foraging & Profitable Irrigation)
    ↓
 TASK_45 (Caloric Seed Sowing & Agricultural Feedback Loop)
+   ↓
+TASK_46 (Distributed LAN Cluster Dashboard Wide Layout & Seamless Scrolling)
+   ↓
+TASK_47 (LAN Cluster Dashboard Horizontal Island Cameras Sub-Row)
+   ↓
+TASK_48 (Native Grid Camera Preview Resolution & Fixed Quality)
+   ↓
+TASK_49 (Lossless PNG Camera Preview)
 ```
 
 ---
@@ -163,7 +171,12 @@ TASK_45 (Caloric Seed Sowing & Agricultural Feedback Loop)
 | **42** | `TASK_42_fix_cluster_modal_dom_hierarchy_and_hud_binding.md` | `index.html`, `js/main.js` | `DONE` | Fix unclosed join modal div hierarchy and ensure cluster modal HUD button binds reliably. |
 | **43** | `TASK_43_harsh_coastal_perimeter_and_corner_eviction.md` | `js/config.js`, `js/grid.js`, `js/environment.js`, `js/agent.js`, `js/simulation.js`, `js/workers/island.worker.js`, `js/renderer.js` | `DONE` | Inhospitable coastal perimeter (zero flora, exposure drain) eliminating corner-camping traps. |
 | **44** | `TASK_44_subterranean_root_foraging_and_profitable_irrigation.md` | `js/config.js`, `js/agent.js`, `js/simulation.js`, `js/workers/island.worker.js` | `DONE` | Profitable trench digging for tubers (+1.3 to +2.0 net ROI) and microclimate cooling. |
-| **45** | `TASK_45_caloric_seed_sowing_and_agricultural_action.md` | `js/config.js`, `js/nn.js`, `js/agent.js`, `js/simulation.js`, `js/renderer.js` | `TODO` | Active seed sowing action (10-output RNN) requiring calories and moist uncompacted soil. |
+| **45** | `TASK_45_caloric_seed_sowing_and_agricultural_action.md` | `js/config.js`, `js/nn.js`, `js/agent.js`, `js/simulation.js`, `js/renderer.js` | `DONE` | Active seed sowing action (10-output RNN) requiring calories and moist uncompacted soil. |
+| **46** | `TASK_46_cluster_dashboard_wide_layout_and_seamless_scrolling.md` | `style.css`, `index.html`, `js/main.js` | `DONE` | Widescreen command-center layout (1360px), column alignments, non-wrapping actions, and smooth scrolling. |
+| **47** | `TASK_47_lan_dashboard_horizontal_island_cameras_subrow.md` | `style.css`, `index.html`, `js/main.js` | `DONE` | Dedicated horizontal cameras sub-row per node record, eliminating vertical bloating. |
+| **48** | `TASK_48_native_grid_camera_preview_resolution.md` | `js/config.js`, `js/workers/island.worker.js`, `js/island-manager.js`, `js/cluster-client.js`, `js/main.js` | `DONE` | Native 128×128 grid camera preview with fixed 0.75 JPEG quality, preserving 1.5s framerate. |
+| **49** | `TASK_49_lossless_png_camera_preview.md` | `js/config.js`, `js/island-manager.js` | `DONE` | Lossless PNG camera preview encoding for razor-sharp pixel-perfect grid viewing. |
+
 
 
 

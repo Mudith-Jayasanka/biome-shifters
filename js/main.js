@@ -20,7 +20,8 @@ const ACTION_NAMES = [
   'Grazing Flora',
   'Excavating Trench',
   'Mounding Earth',
-  'Emitting Scent'
+  'Emitting Scent',
+  'Sowing Seeds'
 ];
 
 class App {
@@ -706,8 +707,26 @@ class App {
     const tbody = document.getElementById('cluster-nodes-table-body');
     if (tbody) {
       tbody.addEventListener('click', async (e) => {
-        // Check for clicking on camera icon on island pill
-        const camBtn = e.target.closest('.pill-cam-btn');
+        // Toggle radiation on an island rad toggle badge
+        const radToggle = e.target.closest('.cam-rad-toggle');
+        if (radToggle && radToggle.dataset.island !== undefined) {
+          e.stopPropagation();
+          const islandId = parseInt(radToggle.dataset.island, 10);
+          const camBtn = radToggle.closest('.node-cam-btn');
+          const isCurrentlyIrradiated = camBtn ? camBtn.classList.contains('irradiated') : true;
+          try {
+            await this.clusterClient.toggleIslandRadiation(islandId, !isCurrentlyIrradiated);
+            await this.refreshClusterNodes();
+            this.updateMultiIslandCard();
+            this.updateIslandBarStats();
+          } catch (err) {
+            alert(`Failed to toggle island radiation: ${err.message}`);
+          }
+          return;
+        }
+
+        // Check for clicking on camera button or icon
+        const camBtn = e.target.closest('.node-cam-btn, .pill-cam-btn');
         if (camBtn && camBtn.dataset.island !== undefined) {
           e.stopPropagation();
           const islandId = parseInt(camBtn.dataset.island, 10);
@@ -954,7 +973,11 @@ class App {
 
     if (isLocal) {
       try {
-        const record = await this.islandManager.requestIslandSnapshot(islandId, 64, 64);
+        const record = await this.islandManager.requestIslandSnapshot(
+          islandId,
+          CONFIG.SNAPSHOT_WIDTH || 128,
+          CONFIG.SNAPSHOT_HEIGHT || 128
+        );
         if (this.activeSnooperIsland !== islandId) return;
 
         const dataUrl = (record && record.dataUrl) ? record.dataUrl : record;
@@ -1111,28 +1134,25 @@ class App {
           const statusLabel = n.status === 'active' ? 'Active' : (n.status === 'offline' ? 'Offline' : 'Delayed');
           const statusHtml = `<span class="node-status-dot ${statusClass}"></span>${statusLabel}`;
 
-          let islandsHtml = '—';
+          let camerasListHtml = '<span class="text-muted text-xs">No active simulated islands</span>';
           if (Array.isArray(n.islandIds) && n.islandIds.length > 0) {
             const nodeRadSet = new Set(n.irradiatedIslands || []);
-            islandsHtml = `
-              <div class="island-pills-row">
-                ${n.islandIds.map(islId => {
-                  const isRad = nodeRadSet.has(islId) || (this.islandManager && this.islandManager.isIslandIrradiated(islId));
-                  return `
-                    <button class="island-pill-btn ${isRad ? 'irradiated' : ''}" 
-                            data-island="${islId}" 
-                            title="${isRad ? `Island ${islId + 1}: Irradiated (Extreme Mutation Active)\nClick to restore normal mutation` : `Island ${islId + 1}: Normal Mutation\nClick to activate Radiation & Extreme Mutation Mode`}">
-                      ${isRad ? '☢️' : '🏝️'} Isl ${islId + 1}
-                      <span class="pill-cam-btn" 
-                            data-island="${islId}" 
-                            data-nodename="${this.escapeHtml(n.name || (isHost ? 'Host' : 'Contributor'))}" 
-                            data-nodeip="${this.escapeHtml(n.ip || (isHost ? 'Local' : '127.0.0.1'))}" 
-                            title="Open live satellite cam for Island ${islId + 1}">📹</span>
-                    </button>
-                  `;
-                }).join('')}
-              </div>
-            `;
+            const nodeName = this.escapeHtml(n.name || (isHost ? 'Host' : 'Contributor'));
+            const nodeIp = this.escapeHtml(n.ip || (isHost ? 'Local' : '127.0.0.1'));
+            camerasListHtml = n.islandIds.map(islId => {
+              const isRad = nodeRadSet.has(islId) || (this.islandManager && this.islandManager.isIslandIrradiated(islId));
+              return `
+                <button class="node-cam-btn ${isRad ? 'irradiated' : ''}" 
+                        data-island="${islId}" 
+                        data-nodename="${nodeName}" 
+                        data-nodeip="${nodeIp}" 
+                        title="${isRad ? `Island ${islId + 1}: Irradiated (Extreme Mutation)\nClick to view live satellite cam` : `Island ${islId + 1}: Normal Mutation\nClick to view live satellite cam`}">
+                  <span class="cam-icon">${isRad ? '☢️' : '📹'}</span>
+                  <span class="cam-label">Camera ${islId + 1}</span>
+                  ${isRad ? `<span class="cam-rad-toggle" data-island="${islId}" title="Toggle extreme mutation mode">RAD</span>` : ''}
+                </button>
+              `;
+            }).join('');
           }
 
           let perfHtml = '<span class="perf-badge host">Host (Default)</span>';
@@ -1154,14 +1174,8 @@ class App {
               ? `<button class="btn btn-xs btn-cluster-action btn-action-vis unhide" data-action="unhide" data-id="${n.nodeId}" title="Unhide simulation canvas on this contributor">👁️ Unhide</button>`
               : `<button class="btn btn-xs btn-cluster-action btn-action-vis hide" data-action="hide" data-id="${n.nodeId}" title="Mute canvas and activate zero-render screensaver to save compute">🙈 Hide</button>`;
 
-            const firstIslandId = (Array.isArray(n.islandIds) && n.islandIds.length > 0) ? n.islandIds[0] : null;
-            const camBtnHtml = firstIslandId !== null
-              ? `<button class="btn btn-xs btn-cluster-action btn-action-cam" data-action="cam" data-island="${firstIslandId}" data-name="${this.escapeHtml(n.name || 'Contributor')}" data-ip="${this.escapeHtml(n.ip || '')}" title="View live satellite camera for this contributor's island">📹 Cam</button>`
-              : '';
-
             actionsHtml = `
               <div class="cluster-actions-cell">
-                ${camBtnHtml}
                 <button class="btn btn-xs btn-cluster-action btn-action-rename" data-action="rename" data-id="${n.nodeId}" data-name="${this.escapeHtml(n.name || '')}" title="Rename this contributor node">✏️ Rename</button>
                 ${visBtnHtml}
                 <button class="btn btn-xs btn-cluster-action btn-action-kick" data-action="kick" data-id="${n.nodeId}" data-name="${this.escapeHtml(n.name || '')}" title="Remove contributor from cluster">❌ Remove</button>
@@ -1172,17 +1186,26 @@ class App {
           const rowClass = isHost ? 'host-row' : '';
 
           return `
-            <tr class="${rowClass}">
-              <td class="font-bold">${this.escapeHtml(n.name || 'Unknown')}</td>
-              <td>${roleHtml}</td>
-              <td class="mono text-xs">${this.escapeHtml(n.ip || '127.0.0.1')}</td>
-              <td class="mono">${n.cores || 0} Cores</td>
-              <td>${islandsHtml}</td>
-              <td class="mono highlight-action">${(n.tps || 0).toLocaleString()} TPS</td>
-              <td class="mono">${(n.population || 0).toLocaleString()}</td>
-              <td>${perfHtml}</td>
-              <td>${statusHtml}</td>
-              <td style="text-align: right;">${actionsHtml}</td>
+            <tr class="node-main-row ${rowClass}" data-node-id="${n.nodeId}">
+              <td class="col-node-name font-bold">${this.escapeHtml(n.name || 'Unknown')}</td>
+              <td class="col-node-role">${roleHtml}</td>
+              <td class="col-node-ip mono text-xs">${this.escapeHtml(n.ip || '127.0.0.1')}</td>
+              <td class="col-node-cores mono">${n.cores || 0} Cores</td>
+              <td class="col-node-tps mono highlight-action">${(n.tps || 0).toLocaleString()} TPS</td>
+              <td class="col-node-pop mono">${(n.population || 0).toLocaleString()}</td>
+              <td class="col-node-perf">${perfHtml}</td>
+              <td class="col-node-status">${statusHtml}</td>
+              <td class="col-node-actions">${actionsHtml}</td>
+            </tr>
+            <tr class="node-cams-row ${rowClass}" data-node-id="${n.nodeId}">
+              <td colspan="9" class="col-node-cams-cell">
+                <div class="node-cams-container">
+                  <span class="node-cams-heading">📹 Cameras:</span>
+                  <div class="node-cams-list">
+                    ${camerasListHtml}
+                  </div>
+                </div>
+              </td>
             </tr>
           `;
         }).join('');

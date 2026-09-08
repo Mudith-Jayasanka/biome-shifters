@@ -1,7 +1,7 @@
 # Task 45: Caloric Seed Sowing & Agricultural Feedback Loop
 
 ## Status
-`TODO`
+`DONE`
 
 ---
 
@@ -135,8 +135,8 @@ In `Agent.prototype.act()` under `ACTIONS.SOW_SEEDS`:
 ---
 
 ## Acceptance Criteria
-- [ ] `NN_OUTPUT_SIZE: 10` and `ACTIONS.SOW_SEEDS: 9` defined in `js/config.js`.
-- [ ] `NeuralNet.fromJSON()` cleanly upgrades legacy 9-output saves to 10 outputs.
-- [ ] Seed sowing strictly requires moisture ($m \ge 0.30$) and untrampled soil ($t \le 0.45$).
-- [ ] Coastal perimeter rejects seed sowing.
-- [ ] Agent action decoder and inspector UI render all 10 actions cleanly.
+- [x] `NN_OUTPUT_SIZE: 10` and `ACTIONS.SOW_SEEDS: 9` defined in `js/config.js`.
+- [x] `NeuralNet.fromJSON()` cleanly upgrades legacy 9-output saves to 10 outputs.
+- [x] Seed sowing strictly requires moisture ($m \ge 0.30$) and untrampled soil ($t \le 0.45$).
+- [x] Coastal perimeter rejects seed sowing.
+- [x] Agent action decoder and inspector UI render all 10 actions cleanly.

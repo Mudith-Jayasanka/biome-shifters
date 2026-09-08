@@ -30,6 +30,7 @@ export class Agent {
     this.offspringCount = 0;
     this.trenchesDug = 0;
     this.rootsHarvested = 0;
+    this.seedsSown = 0;
 
     // Lineage and visual identification
     this.color = this.generateColor();
@@ -348,6 +349,30 @@ export class Agent {
         break;
       }
 
+      case ACTIONS.SOW_SEEDS: {
+        this.energy -= CONFIG.SEED_SOW_COST;
+        const moist = grid.getMoisture(this.x, this.y);
+        const fert = grid.getFertility(this.x, this.y);
+        const trample = grid.getTrample(this.x, this.y);
+        const curBio = grid.getBiomass(this.x, this.y);
+
+        // Strict physical conditions: seeds require moisture, fertile soil, uncompacted soil, and space to grow
+        if (
+          moist >= CONFIG.SEED_GERM_MIN_MOISTURE &&
+          fert > 0.20 &&
+          trample <= CONFIG.SEED_GERM_MAX_TRAMPLE &&
+          curBio < 0.15 &&
+          !grid.isCoastal(this.x, this.y)
+        ) {
+          grid.setBiomass(this.x, this.y, CONFIG.SEED_GERM_BIOMASS);
+          this.seedsSown = (this.seedsSown || 0) + 1;
+          success = 1.0;
+        } else {
+          success = 0.0; // Seeds withered or trampled
+        }
+        break;
+      }
+
       default:
         success = 0.0;
         break;
@@ -498,6 +523,7 @@ export class Agent {
       offspringCount: this.offspringCount,
       trenchesDug: this.trenchesDug,
       rootsHarvested: this.rootsHarvested,
+      seedsSown: this.seedsSown,
       brain: this.brain.toJSON()
     };
   }
@@ -513,6 +539,7 @@ export class Agent {
     if (json.offspringCount !== undefined) agent.offspringCount = json.offspringCount;
     if (json.trenchesDug !== undefined) agent.trenchesDug = json.trenchesDug;
     if (json.rootsHarvested !== undefined) agent.rootsHarvested = json.rootsHarvested;
+    if (json.seedsSown !== undefined) agent.seedsSown = json.seedsSown;
     if (json.color) agent.color = json.color;
     return agent;
   }

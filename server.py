@@ -282,7 +282,6 @@ class ClusterManager:
                     'isTurbo': cls.is_turbo,
                     'tick': cls.tick,
                     'migrationEpoch': cls.migration_epoch,
-                    'irradiatedIslands': sorted(list(cls.irradiated_islands))
                     'irradiatedIslands': sorted(list(cls.irradiated_islands)),
                     'requestedSnapshotIsland': req_island
                 }
@@ -843,13 +842,10 @@ class BiomeShiftersRequestHandler(http.server.SimpleHTTPRequestHandler):
         super().__init__(*args, directory=str(BASE_DIR), **kwargs)
 
     def log_message(self, format, *args):
-        """Suppress noisy periodic heartbeat telemetry logs from flooding the terminal."""
-        if getattr(self, 'path', '') and '/api/cluster/heartbeat' in self.path:
         """Suppress noisy periodic heartbeat and snooper snapshot logs from flooding the terminal."""
         path_str = getattr(self, 'path', '')
         if path_str and any(noisy in path_str for noisy in ('/api/cluster/heartbeat', '/api/cluster/island/snapshot', '/api/cluster/snooper')):
             return
-        if args and any('/api/cluster/heartbeat' in str(arg) for arg in args):
         if args and any(any(noisy in str(arg) for noisy in ('/api/cluster/heartbeat', '/api/cluster/island/snapshot', '/api/cluster/snooper')) for arg in args):
             return
         super().log_message(format, *args)

@@ -21,7 +21,7 @@ export class NeuralNet {
   constructor(
     inputSize = CONFIG.NN_INPUT_SIZE || 37,
     hiddenSize = CONFIG.NN_HIDDEN_SIZE || 24,
-    outputSize = CONFIG.NN_OUTPUT_SIZE || 9
+    outputSize = CONFIG.NN_OUTPUT_SIZE || 10
   ) {
     this.inputSize = inputSize;
     this.hiddenSize = hiddenSize;
@@ -164,8 +164,9 @@ export class NeuralNet {
     const child = new NeuralNet(parentA.inputSize, parentA.hiddenSize, parentA.outputSize);
 
     const cross = (childArr, arrA, arrB) => {
+      const lenB = arrB ? arrB.length : 0;
       for (let i = 0; i < childArr.length; i++) {
-        childArr[i] = Math.random() < 0.5 ? arrA[i] : arrB[i];
+        childArr[i] = (i < lenB && Math.random() < 0.5) ? arrB[i] : arrA[i];
       }
     };
 
@@ -208,15 +209,34 @@ export class NeuralNet {
   }
 
   /**
-   * Restore network from JSON object
+   * Restore network from JSON object (upgrades legacy 9-output models seamlessly)
    */
   static fromJSON(json) {
-    const net = new NeuralNet(json.inputSize, json.hiddenSize, json.outputSize);
+    const targetOut = CONFIG.NN_OUTPUT_SIZE || 10;
+    const net = new NeuralNet(json.inputSize, json.hiddenSize, targetOut);
     net.weightsInput.set(json.weightsInput);
     net.weightsRecurrent.set(json.weightsRecurrent);
-    net.weightsOutput.set(json.weightsOutput);
     net.biasesHidden.set(json.biasesHidden);
-    net.biasesOutput.set(json.biasesOutput);
+
+    // If loading legacy save with 9 outputs, copy existing outputs and randomize 10th
+    if (json.outputSize === 9 && targetOut === 10) {
+      const hSize = json.hiddenSize;
+      for (let h = 0; h < hSize; h++) {
+        for (let o = 0; o < 9; o++) {
+          net.weightsOutput[h * 10 + o] = json.weightsOutput[h * 9 + o];
+        }
+        // Action 9 (SOW_SEEDS) starts with gentle exploratory weight
+        net.weightsOutput[h * 10 + 9] = (Math.random() * 2 - 1) * 0.1;
+      }
+      for (let o = 0; o < 9; o++) {
+        net.biasesOutput[o] = json.biasesOutput[o];
+      }
+      net.biasesOutput[9] = -0.5; // Slight initial inhibitory bias
+    } else {
+      net.weightsOutput.set(json.weightsOutput);
+      net.biasesOutput.set(json.biasesOutput);
+    }
+
     return net;
   }
 }

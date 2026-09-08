@@ -61,8 +61,14 @@ export const CONFIG = {
   // Neural Network Dimensions
   NN_INPUT_SIZE: 37,
   NN_HIDDEN_SIZE: 24,
-  NN_OUTPUT_SIZE: 9,
+  NN_OUTPUT_SIZE: 10,
   MUTATION_RATE_DEFAULT: 0.08,
+
+  // Action Space & Agriculture
+  SEED_SOW_COST: 2.5,                // Caloric investment to deposit viable seeds
+  SEED_GERM_MIN_MOISTURE: 0.30,      // Minimum soil moisture required for germination
+  SEED_GERM_MAX_TRAMPLE: 0.45,       // High soil compaction crushes delicate seeds
+  SEED_GERM_BIOMASS: 0.20,           // Initial sapling biomass created on successful germination
 
   // Population Scaling & Floor Limits
   INITIAL_POPULATION: 200,
@@ -70,7 +76,12 @@ export const CONFIG = {
   MAX_POPULATION: 800,
 
   // Performance & Turbo Mode Throttling
-  TURBO_UI_FPS: 4            // Canvas & UI refresh rate in Turbo mode to dedicate CPU to simulation
+  TURBO_UI_FPS: 4,           // Canvas & UI refresh rate in Turbo mode to dedicate CPU to simulation
+
+  // Satellite Camera Preview Snapshots (Native 1:1 Grid & Lossless PNG)
+  SNAPSHOT_WIDTH: 128,          // Native 1:1 simulation grid width
+  SNAPSHOT_HEIGHT: 128,         // Native 1:1 simulation grid height
+  SNAPSHOT_FORMAT: 'image/png'  // Lossless PNG encoding for razor-sharp pixel rendering
 };
 
 export const ACTIONS = {
@@ -82,6 +93,7 @@ export const ACTIONS = {
   GRAZE: 5,
   DIG_TRENCH: 6,
   MOUND_EARTH: 7,
-  EMIT_SCENT: 8
+  EMIT_SCENT: 8,
+  SOW_SEEDS: 9
 };
 

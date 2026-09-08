@@ -161,6 +161,7 @@ function packAgents(agents) {
       biomassEaten: a.biomassEaten,
       trenchesDug: a.trenchesDug || 0,
       rootsHarvested: Math.round((a.rootsHarvested || 0) * 10) / 10,
+      seedsSown: a.seedsSown || 0,
       lastAction: a.lastAction,
       color: a.color,
       isImmigrant: Boolean(a.isImmigrant),
@@ -170,8 +171,8 @@ function packAgents(agents) {
   return packed;
 }
 
-// Generate downsampled satellite snapshot pixel buffer on demand
-function generateSnapshot(targetWidth = 64, targetHeight = 64) {
+// Generate satellite snapshot pixel buffer on demand (defaults to native grid resolution)
+function generateSnapshot(targetWidth = (CONFIG.SNAPSHOT_WIDTH || CONFIG.GRID_WIDTH || 128), targetHeight = (CONFIG.SNAPSHOT_HEIGHT || CONFIG.GRID_HEIGHT || 128)) {
   if (!simulation || !simulation.grid) return;
 
   const grid = simulation.grid;
@@ -349,6 +350,7 @@ self.onmessage = function (e) {
             offspringCount: agent.offspringCount,
             trenchesDug: agent.trenchesDug || 0,
             rootsHarvested: Math.round((agent.rootsHarvested || 0) * 10) / 10,
+            seedsSown: agent.seedsSown || 0,
             lastAction: agent.lastAction,
             isImmigrant: Boolean(agent.isImmigrant),
             originIsland: agent.originIsland,
@@ -460,7 +462,10 @@ self.onmessage = function (e) {
     }
 
     case 'REQUEST_SNAPSHOT': {
-      generateSnapshot(msg.width || 64, msg.height || 64);
+      generateSnapshot(
+        msg.width || CONFIG.SNAPSHOT_WIDTH || CONFIG.GRID_WIDTH || 128,
+        msg.height || CONFIG.SNAPSHOT_HEIGHT || CONFIG.GRID_HEIGHT || 128
+      );
       break;
     }
 

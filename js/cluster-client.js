@@ -4,6 +4,8 @@
  * periodic heartbeat telemetry dispatch, and remote simulation state synchronization.
  */
 
+import { CONFIG } from './config.js';
+
 export class ClusterClient {
   constructor(options = {}) {
     this.apiBase = options.apiBase || '';
@@ -550,7 +552,11 @@ export class ClusterClient {
     if (!this.islandManager || this.isSnapshotDispatching) return;
     this.isSnapshotDispatching = true;
     try {
-      const record = await this.islandManager.requestIslandSnapshot(islandId, 64, 64);
+      const record = await this.islandManager.requestIslandSnapshot(
+        islandId,
+        CONFIG.SNAPSHOT_WIDTH || 128,
+        CONFIG.SNAPSHOT_HEIGHT || 128
+      );
       if (record && record.dataUrl) {
         await fetch(`${this.apiBase}/api/cluster/island/snapshot`, {
           method: 'POST',
