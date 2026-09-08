@@ -15,15 +15,36 @@ import threading
 import time
 import urllib.parse
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8080
 BASE_DIR = Path(__file__).resolve().parent
 SAVES_DIR = BASE_DIR / "saves"
 METADATA_FILE = SAVES_DIR / "metadata.json"
+VERSION_FILE = BASE_DIR / "version.json"
 
 os.makedirs(SAVES_DIR, exist_ok=True)
+
+
+def get_build_version() -> dict:
+    """Load latest build version from version.json or provide fallback defaults."""
+    if VERSION_FILE.exists():
+        try:
+            with open(VERSION_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"[Version] Warning reading {VERSION_FILE.name}: {e}", file=sys.stderr)
+    return {
+        "major": 1,
+        "minor": 1,
+        "patch": 0,
+        "build": 10,
+        "version": "1.1.0",
+        "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "action": "Baseline"
+    }
+
 
 
 def get_lan_ip() -> str:
@@ -180,6 +201,7 @@ class ClusterManager:
                 'islandIds': island_ids,
                 'baseSeed': int(time.time() * 1000) % 10000000,
                 'perfMode': 'standard',
+                'buildVersion': get_build_version(),
                 'globalState': {
                     'isPaused': cls.is_paused,
                     'speed': cls.speed,
@@ -271,6 +293,7 @@ class ClusterManager:
 
             return {
                 'status': 'ok',
+                'buildVersion': get_build_version(),
                 'nodeState': {
                     'name': node.get('name', 'Unknown'),
                     'isHidden': bool(node.get('isHidden', False)),
@@ -456,6 +479,7 @@ class ClusterManager:
                 'isHost': is_host,
                 'hostIp': get_lan_ip(),
                 'port': PORT,
+                'buildVersion': get_build_version(),
                 'cluster': {
                     'totalNodes': total_nodes,
                     'totalCores': total_cores,
@@ -850,6 +874,13 @@ class BiomeShiftersRequestHandler(http.server.SimpleHTTPRequestHandler):
             return
         super().log_message(format, *args)
 
+    def end_headers(self):
+        """Ensure static frontend assets are revalidated by clients and not served stale from cache."""
+        if not any(b'cache-control' in h.lower() for h in getattr(self, '_headers_buffer', [])):
+            self.send_header('Cache-Control', 'no-cache, must-revalidate')
+        super().end_headers()
+
+
     def _send_json(self, status_code: int, data: dict | list):
         payload = json.dumps(data).encode('utf-8')
         self.send_response(status_code)
@@ -876,6 +907,11 @@ class BiomeShiftersRequestHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
+
+        # Version endpoint
+        if path == '/api/version' or path == '/api/version/':
+            self._handle_version()
+            return
 
         # Cluster endpoints
         if path == '/api/cluster/status' or path == '/api/cluster/status/':
@@ -1052,6 +1088,9 @@ class BiomeShiftersRequestHandler(http.server.SimpleHTTPRequestHandler):
             self._send_json(200, {'status': 'success', 'message': f'{safe_name} deleted'})
         except Exception as e:
             self._send_json(500, {'error': f'Failed to delete: {str(e)}'})
+
+    def _handle_version(self):
+        self._send_json(200, get_build_version())
 
     def _handle_cluster_status(self):
         summary = ClusterManager.get_cluster_summary(self.client_address[0], self.is_localhost_request())

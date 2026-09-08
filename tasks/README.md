@@ -125,6 +125,11 @@ TASK_50 (Fix Radiation Toggle Worker Map Lookup)
 TASK_51 (Performance Limiter Decoupling & Host Uncapped Execution)
    ↓
 TASK_52 (Island Worker MessageChannel Turbo Pump for Maximum CPU Saturation)
+
+Phase 11: Cluster Resilience, Auto-Recovery & Zero-Friction Version Synchronization
+TASK_53 (Build Version Generator, Cache-Busting Headers & Version Endpoints)
+   ↓
+TASK_54 (Client Auto-Disconnect, Auto-Reconnect & Version Mismatch Synchronization)
 ```
 
 ---
@@ -185,6 +190,8 @@ TASK_52 (Island Worker MessageChannel Turbo Pump for Maximum CPU Saturation)
 | **50** | `TASK_50_fix_radiation_toggle_worker_map_lookup.md` | `js/cluster-client.js`, `js/island-manager.js` | `DONE` | Fix TypeError: this.islandManager.workers.has is not a function when toggling island radiation mode. |
 | **51** | `TASK_51_perf_limiter_decoupling_and_host_turbo_default.md` | `js/workers/island.worker.js`, `server.py`, `js/cluster-client.js`, `js/island-manager.js`, `js/main.js` | `DONE` | Decouple simulation speed / Turbo from perf limiter, and set Host default to uncapped Turbo. |
 | **52** | `TASK_52_island_worker_messagechannel_turbo_pump.md` | `js/workers/island.worker.js`, `js/config.js` | `DONE` | Replace 4ms-clamped setTimeout in island worker with MessageChannel pump for 100% CPU saturation. |
+| **53** | `TASK_53_build_version_generator_and_cache_headers.md` | `scripts/commit_task.sh`, `version.json`, `server.py` | `DONE` | Build version generation on commit (SemVer 1.1.1 format), /api/version endpoints, and static Cache-Control headers. |
+| **54** | `TASK_54_auto_disconnect_reconnect_and_version_sync.md` | `js/cluster-client.js`, `js/main.js`, `style.css`, `index.html`, `server.py` | `TODO` | Auto-disconnect 3m pause, 3s auto-reconnect, Host persistent version banner, and Contributor dramatic countdown reload. |
 
 
 
