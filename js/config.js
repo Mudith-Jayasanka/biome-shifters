@@ -77,6 +77,7 @@ export const CONFIG = {
 
   // Performance & Turbo Mode Throttling
   TURBO_UI_FPS: 4,           // Canvas & UI refresh rate in Turbo mode to dedicate CPU to simulation
+  TURBO_BATCH_SIZE: 50,      // Simulation ticks executed per microtask pump in Turbo mode
 
   // Satellite Camera Preview Snapshots (Native 1:1 Grid & Lossless PNG)
   SNAPSHOT_WIDTH: 128,          // Native 1:1 simulation grid width

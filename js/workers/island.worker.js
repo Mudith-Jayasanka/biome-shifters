@@ -49,6 +49,10 @@ let perfMode = 'turbo';
 let isRunning = false;
 let loopTimer = null;
 
+// Dedicated zero-latency MessageChannel pump for uncapped Turbo mode
+const turboChannel = new MessageChannel();
+let isTurboPumping = false;
+
 // Telemetry & TPS measurement
 let tickCounter = 0;
 let lastTpsTime = performance.now();
@@ -84,25 +88,86 @@ function measureTpsAndSendTelemetry() {
   }
 }
 
+// Zero-latency microtask execution pump for Turbo mode (100% CPU core saturation)
+turboChannel.port1.onmessage = function() {
+  if (!isRunning || isPaused || !isTurbo || perfMode !== 'turbo' || !simulation) {
+    isTurboPumping = false;
+    return;
+  }
+
+  const batchSize = CONFIG.TURBO_BATCH_SIZE || 50;
+  for (let i = 0; i < batchSize; i++) {
+    if (!isRunning || isPaused || !isTurbo || perfMode !== 'turbo') break;
+    simulation.tick();
+    tickCounter++;
+  }
+
+  measureTpsAndSendTelemetry();
+
+  if (isRunning && !isPaused && isTurbo && perfMode === 'turbo') {
+    turboChannel.port2.postMessage(null);
+  } else {
+    isTurboPumping = false;
+    if (isRunning && !isPaused && !loopTimer) {
+      runLoopStep();
+    }
+  }
+};
+
+function syncLoopPacing() {
+  if (!isRunning || isPaused || !simulation) {
+    isTurboPumping = false;
+    if (loopTimer) {
+      clearTimeout(loopTimer);
+      loopTimer = null;
+    }
+    return;
+  }
+
+  if (isTurbo && perfMode === 'turbo') {
+    if (loopTimer) {
+      clearTimeout(loopTimer);
+      loopTimer = null;
+    }
+    if (!isTurboPumping) {
+      isTurboPumping = true;
+      turboChannel.port2.postMessage(null);
+    }
+  } else {
+    isTurboPumping = false;
+    if (!loopTimer) {
+      runLoopStep();
+    }
+  }
+}
+
 function runLoopStep() {
   if (!isRunning) return;
+  if (loopTimer) {
+    clearTimeout(loopTimer);
+    loopTimer = null;
+  }
+
+  // If in uncapped Turbo mode, transition immediately to zero-latency MessageChannel pump
+  if (isTurbo && perfMode === 'turbo') {
+    if (!isPaused && simulation && !isTurboPumping) {
+      isTurboPumping = true;
+      turboChannel.port2.postMessage(null);
+    }
+    return;
+  }
+
+  isTurboPumping = false;
 
   if (!isPaused && simulation) {
     if (isTurbo) {
+      // isTurbo active under eco or standard power/thermal limiter
       if (perfMode === 'eco') {
         simulation.tick();
         tickCounter++;
       } else if (perfMode === 'standard') {
         simulation.tick();
         tickCounter++;
-      } else {
-        // perfMode === 'turbo' (uncapped)
-        const batchSize = 25;
-        for (let i = 0; i < batchSize; i++) {
-          if (isPaused || !isRunning) break;
-          simulation.tick();
-          tickCounter++;
-        }
       }
     } else {
       // Normal speed multiplier (1x, 2x, 5x, 10x)
@@ -117,14 +182,14 @@ function runLoopStep() {
 
   measureTpsAndSendTelemetry();
 
+  if (!isRunning || isPaused) return;
+
   // Schedule next iteration based on performance limiter mode
   let delay = 16;
   if (perfMode === 'eco') {
-    delay = 33; // ~30 TPS
+    delay = 33; // ~30 TPS cap
   } else if (perfMode === 'standard') {
-    delay = 16; // ~60 TPS
-  } else if (perfMode === 'turbo') {
-    delay = isTurbo ? 0 : 16;
+    delay = 16; // ~60 TPS cap
   }
   loopTimer = setTimeout(runLoopStep, delay);
 }
@@ -134,11 +199,12 @@ function startLoop() {
   isRunning = true;
   lastTpsTime = performance.now();
   tickCounter = 0;
-  runLoopStep();
+  syncLoopPacing();
 }
 
 function stopLoop() {
   isRunning = false;
+  isTurboPumping = false;
   if (loopTimer) {
     clearTimeout(loopTimer);
     loopTimer = null;
@@ -290,17 +356,20 @@ self.onmessage = function (e) {
 
     case 'SET_PERF_MODE': {
       perfMode = msg.perfMode || 'turbo';
+      syncLoopPacing();
       break;
     }
 
     case 'SET_SPEED': {
       speed = msg.speed || 1;
       isTurbo = Boolean(msg.isTurbo);
+      syncLoopPacing();
       break;
     }
 
     case 'SET_PAUSE': {
       isPaused = Boolean(msg.isPaused);
+      syncLoopPacing();
       break;
     }
 

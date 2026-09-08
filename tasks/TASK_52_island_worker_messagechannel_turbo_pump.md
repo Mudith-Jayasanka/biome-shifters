@@ -1,7 +1,7 @@
 # Task 52: Island Worker MessageChannel Turbo Pump for Maximum CPU Saturation
 
 ## Status
-`TODO`
+`DONE`
 
 ---
 
@@ -51,7 +51,7 @@ In all major browser engines (per the WHATWG HTML5 specification), nested `setTi
 
     const batchSize = CONFIG.TURBO_BATCH_SIZE || 50;
     for (let i = 0; i < batchSize; i++) {
-      if (!isRunning || isPaused || !isTurbo) break;
+      if (!isRunning || isPaused || !isTurbo || perfMode !== 'turbo') break;
       simulation.tick();
       tickCounter++;
     }
@@ -93,8 +93,7 @@ In all major browser engines (per the WHATWG HTML5 specification), nested `setTi
 ---
 
 ## Acceptance Criteria
-- [ ] `MessageChannel` pump operates inside `island.worker.js` without timer clamping.
-- [ ] Worker thread maximizes CPU core capacity during Turbo mode.
-- [ ] Coordinator messages (`GET_FRAME`, `SET_PAUSE`, `SET_SPEED`) are processed without starvation.
-- [ ] Toggling between normal speeds, pause, and Turbo transitions cleanly without duplicate loops or CPU leaks.
-
+- [x] `MessageChannel` pump operates inside `island.worker.js` without timer clamping.
+- [x] Worker thread maximizes CPU core capacity during Turbo mode.
+- [x] Coordinator messages (`GET_FRAME`, `SET_PAUSE`, `SET_SPEED`) are processed without starvation.
+- [x] Toggling between normal speeds, pause, and Turbo transitions cleanly without duplicate loops or CPU leaks.
