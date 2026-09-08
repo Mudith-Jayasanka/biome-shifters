@@ -51,10 +51,66 @@ TASK_18 (Elite Reseeding & Extinction Safety Floor)
    ↓
 TASK_19 (Real-Time Population & Eco-System Telemetry Graphs)
 
-Phase 6: Multi-Threading & Scale
-TASK_20 (Web Worker Offloading: Headless sim.worker.js)
+Phase 6: Multi-Core Scale & Island Evolution
+TASK_18 (Headless Island Web Worker Core & Elite Export/Import)
    ↓
-TASK_21 (Multi-Island Parallelism & Biome Continental Drift)
+TASK_19 (Multi-Island Manager & Cross-Island Elite Migration)
+   ↓
+TASK_20 (8-Island UI Switcher, Multi-Core Dashboard & HUD Controls)
+   ↓
+TASK_21 (Turbo Mode Canvas & UI Throttling to 4 FPS)
+   ↓
+TASK_22 (Auto-Save Timer Pause Synchronization)
+   ↓
+TASK_23 (Save Telemetry Extractor Script)
+   ↓
+TASK_24 (Ecological Stepping Stones for Irrigation)
+   ↓
+TASK_25 (Save Metadata Indexing System & Performance Optimization)
+   ↓
+TASK_26 (Save Menu Layout Widening & Loading Spinner Overlay)
+   ↓
+TASK_27 (Fix serializeAll islandStates Reference Error)
+
+Phase 7: Distributed LAN Multi-Island Cluster
+TASK_28 (Cluster Backend Coordinator & LAN REST Endpoints)
+   ↓
+TASK_29 (Dynamic IslandManager & Contributor Worker Pool)
+   ↓
+TASK_30 (Client Join Dialog, Host Detection & Feature Gating)
+   ↓
+TASK_31 (Cluster-Wide Genetic Migration & Cross-Breeding Protocol)
+   ↓
+TASK_32 (Host Cluster Nodes Dashboard & LAN Sharing UI)
+   ↓
+TASK_33 (Cluster Heartbeat Persistence & Migration Synchronization Fix)
+   ↓
+TASK_34 (Suppress Heartbeat Terminal Logging)
+   ↓
+Phase 8: Advanced Host Cluster Governance & Zero-Render Worker Mode
+TASK_35 (Cluster Node Control Backend Endpoints & Persistent IP:Name Store)
+   ↓
+TASK_36 (Contributor Kick Handling & Join Screen Reset)
+   ↓
+TASK_37 (Zero-Render Contributor Screen Saver Mode)
+   ↓
+TASK_38 (Host LAN Dashboard Controls UI)
+
+Phase 9: Distributed Ecosystem Orchestration & Telemetry (Future Improvements)
+TASK_39 (Per-Node Performance Limiter: Eco, Standard, Turbo)
+   ↓
+TASK_40 (Radiation & Extreme Mutation Laboratory Mode)
+   ↓
+TASK_41 (Remote Miniature Island Cam & Viewport Snooper)
+   ↓
+TASK_42 (Fix Cluster Modal DOM Hierarchy & HUD Binding)
+
+Phase 10: Agricultural Emergence & Coastal Ecology
+TASK_43 (Harsh Coastal Perimeter & Anti-Corner Eviction)
+   ↓
+TASK_44 (Subterranean Root Foraging & Profitable Irrigation)
+   ↓
+TASK_45 (Caloric Seed Sowing & Agricultural Feedback Loop)
 ```
 
 ---
@@ -79,11 +135,39 @@ TASK_21 (Multi-Island Parallelism & Biome Continental Drift)
 | **14** | `TASK_14_elevation_runaway_and_extinction_recovery_fix.md` | `js/config.js`, `js/grid.js`, `js/agent.js`, `js/environment.js`, `js/simulation.js` | `DONE` | Eliminate elevation runaway, add geological erosion CA, enforce mounding ceiling, and ensure robust spawn fallback. |
 | **15** | `TASK_15_boundary_sensing_and_wall_awareness.md` | `js/agent.js` | `DONE` | Boundary wall physical sensing, obstacle awareness, and prevention of corner starvation traps. |
 | **16** | `TASK_16_neural_network_enhancement_and_intelligent_foraging.md` | `js/config.js`, `js/nn.js`, `js/agent.js`, `js/simulation.js` | `DONE` | 37-input vision & momentum, 24-neuron RNN, sexual crossover, anti-saturation, and biological fitness. |
-| **17** | `TASK_17_trampled_trails_and_highways.md` | `js/environment.js`, `js/agent.js` | `TODO` | Foot traffic soil compaction, dirt trails, and movement speed buffs on highways. |
-| **18** | `TASK_18_terraforming_mechanics.md` | `js/agent.js`, `js/grid.js` | `TODO` | Active canal digging, dam building, and irrigation environmental modification. |
-| **19** | `TASK_19_pheromone_stigmergy.md` | `js/grid.js`, `js/environment.js` | `TODO` | Scent deposition, diffusion, evaporation, and trail-following emergence. |
-| **20** | `TASK_20_extinction_safety_floor.md` | `js/simulation.js` | `TODO` | Top elite brain preservation and safety floor reseeding to avoid total collapses. |
-| **21** | `TASK_21_web_worker_core.md` | `js/workers/sim.worker.js` | `TODO` | Full headless simulation execution on a dedicated background Web Worker thread. |
-| **22** | `TASK_22_multi_island_migration.md` | `js/workers/coordinator.js` | `TODO` | Multiple isolated continental biomes running in parallel with periodic elite migration. |
+| **17** | `TASK_17_autosave_system_and_categorized_save_tabs.md` | `server.py`, `js/storage.js`, `index.html`, `style.css`, `js/main.js` | `DONE` | Configurable periodic auto-save to disk, and multi-tab Save/Load modal (Manual vs Auto-Saves). |
+| **18** | `TASK_18_island_web_worker_core.md` | `js/simulation.js`, `js/workers/island.worker.js` | `DONE` | Headless Web Worker island thread, elite genome export/import, and immigrant spawning. |
+| **19** | `TASK_19_multi_island_manager_and_migration.md` | `js/island-manager.js`, `js/storage.js` | `DONE` | 8-island worker coordinator, pull-based frame streaming, and cross-island elite migration protocol. |
+| **20** | `TASK_20_multi_island_ui_and_controls.md` | `index.html`, `style.css`, `js/main.js`, `js/renderer.js` | `DONE` | 8-island switcher bar, live status badges, keyboard navigation (1-8), and multi-core dashboard. |
+| **21** | `TASK_21_turbo_mode_canvas_ui_throttling.md` | `js/config.js`, `js/main.js`, `index.html` | `DONE` | Throttle canvas rendering, UI DOM updates, and worker frame polling to ~4 FPS in Turbo mode. |
+| **22** | `TASK_22_autosave_pause_synchronization.md` | `js/main.js` | `DONE` | Synchronize auto-save timer countdown and accumulation with simulation pause/resume. |
+| **23** | `TASK_23_save_telemetry_extractor_script.md` | `scripts/extract_save_stats.py` | `DONE` | Standalone CLI script for fast, token-efficient extraction of multi-island and single-sim telemetry. |
+| **24** | `TASK_24_ecological_stepping_stones_for_irrigation.md` | `js/config.js`, `js/agent.js` | `DONE` | Ecological stepping stones: microclimate thermal relief, root excavation rebate, and scent momentum. |
+| **25** | `TASK_25_save_metadata_indexing_system.md` | `server.py`, `js/island-manager.js`, `js/main.js` | `DONE` | Save metadata index in `saves/metadata.json`, incremental change detection, sub-5ms save menu loads. |
+| **26** | `TASK_26_save_menu_layout_and_loading_spinner_overlay.md` | `style.css`, `index.html`, `js/main.js` | `DONE` | 660px save modal width, non-wrapping button layout, full-screen spinny wheel overlay and sim pause. |
+| **27** | `TASK_27_fix_serializeall_islandstates_reference.md` | `js/island-manager.js` | `DONE` | Restore missing await Promise.all(serializePromises) in IslandManager.serializeAll(). |
+| **28** | `TASK_28_cluster_backend_coordinator_and_lan_endpoints.md` | `server.py` | `DONE` | In-memory cluster manager, dynamic island ID allocation, heartbeat tracking, and LAN IP detection banner. |
+| **29** | `TASK_29_dynamic_island_manager_and_contributor_pool.md` | `js/island-manager.js`, `js/cluster-client.js` | `DONE` | Support dynamic island ID offsets, arbitrary core counts (1–8), and remote heartbeat client sync. |
+| **30** | `TASK_30_client_join_dialog_and_feature_gating.md` | `index.html`, `style.css`, `js/main.js` | `DONE` | Localhost vs LAN role detection, join modal (name + core picker), feature gating, and dynamic island bar. |
+| **31** | `TASK_31_cluster_wide_genetic_migration_protocol.md` | `server.py`, `js/island-manager.js`, `js/cluster-client.js` | `DONE` | Distributed Darwinian elite genome exchange across host and clients via server genome pool. |
+| **32** | `TASK_32_host_cluster_nodes_dashboard_and_lan_sharing.md` | `index.html`, `style.css`, `js/main.js` | `DONE` | Host Cluster Nodes modal displaying connected clients, core breakdown, live TPS, and 1-click LAN invite copy. |
+| **33** | `TASK_33_cluster_heartbeat_persistence_and_migration_sync_fix.md` | `server.py`, `js/cluster-client.js`, `js/island-manager.js`, `js/main.js` | `DONE` | Fix disappearing LAN clients via heartbeat auto-healing, tolerant timeouts, and multi-machine migration sync. |
+| **34** | `TASK_34_suppress_heartbeat_terminal_logging.md` | `server.py` | `DONE` | Silence repetitive heartbeat telemetry requests in terminal while retaining other HTTP logs. |
+| **35** | `TASK_35_cluster_node_control_backend_and_name_store.md` | `server.py` | `DONE` | REST endpoints for kick, rename, visibility, and persistent IP:name registry. |
+| **36** | `TASK_36_contributor_kick_handling_and_join_screen_reset.md` | `js/cluster-client.js`, `js/main.js` | `DONE` | Contributor detection of kick signal, worker termination, and clean return to join dialog. |
+| **37** | `TASK_37_zero_render_screensaver_mode.md` | `index.html`, `style.css`, `js/cluster-client.js`, `js/main.js` | `DONE` | Zero-render power-saving mode, cybernetic animated telemetry screen saver, and control locking. |
+| **38** | `TASK_38_host_lan_dashboard_controls_ui.md` | `index.html`, `style.css`, `js/main.js` | `DONE` | Actions column in Host dashboard with Rename, Hide/Unhide, and Remove buttons. |
+| **39** | `TASK_39_per_node_performance_limiter.md` | `server.py`, `js/cluster-client.js`, `js/island-manager.js`, `js/workers/island.worker.js`, `index.html`, `style.css`, `js/main.js` | `DONE` | Performance mode limiter (Eco, Standard, Turbo) per contributor node. |
+| **40** | `TASK_40_radiation_extreme_mutation_lab_mode.md` | `server.py`, `js/simulation.js`, `js/agent.js`, `js/island-manager.js`, `js/cluster-client.js`, `js/workers/island.worker.js`, `index.html`, `style.css`, `js/main.js` | `DONE` | Undoable per-island Radiation & Extreme Mutation Lab Mode for Host and Contributor islands. |
+| **41** | `TASK_41_remote_miniature_island_cam.md` | `server.py`, `js/workers/island.worker.js`, `js/island-manager.js`, `js/cluster-client.js`, `index.html`, `style.css`, `js/main.js` | `DONE` | Demand-driven satellite viewport snooper (64x64) with zero idle network overhead. |
+| **42** | `TASK_42_fix_cluster_modal_dom_hierarchy_and_hud_binding.md` | `index.html`, `js/main.js` | `DONE` | Fix unclosed join modal div hierarchy and ensure cluster modal HUD button binds reliably. |
+| **43** | `TASK_43_harsh_coastal_perimeter_and_corner_eviction.md` | `js/config.js`, `js/grid.js`, `js/environment.js`, `js/agent.js`, `js/simulation.js`, `js/workers/island.worker.js`, `js/renderer.js` | `DONE` | Inhospitable coastal perimeter (zero flora, exposure drain) eliminating corner-camping traps. |
+| **44** | `TASK_44_subterranean_root_foraging_and_profitable_irrigation.md` | `js/config.js`, `js/agent.js`, `js/simulation.js`, `js/workers/island.worker.js` | `DONE` | Profitable trench digging for tubers (+1.3 to +2.0 net ROI) and microclimate cooling. |
+| **45** | `TASK_45_caloric_seed_sowing_and_agricultural_action.md` | `js/config.js`, `js/nn.js`, `js/agent.js`, `js/simulation.js`, `js/renderer.js` | `TODO` | Active seed sowing action (10-output RNN) requiring calories and moist uncompacted soil. |
+
+
+
+
+
 
 

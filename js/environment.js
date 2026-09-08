@@ -268,6 +268,12 @@ export class Environment {
       for (let x = 0; x < w; x++) {
         const i = yOffset + x;
         
+        // Inhospitable coastal perimeter: completely barren, zero flora growth
+        if (this.grid.isCoastal(x, y)) {
+          nextBiomass[i] = 0;
+          continue;
+        }
+
         // Deep standing water inhibits terrestrial plants
         if (water[i] > 0.35) {
           nextBiomass[i] = 0;

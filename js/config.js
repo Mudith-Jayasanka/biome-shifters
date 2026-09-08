@@ -9,6 +9,10 @@ export const CONFIG = {
   GRID_HEIGHT: 128,
   CELL_SIZE_PX: 6,           // Render pixel size per cell at 1x zoom
 
+  // Coastal Perimeter & Boundary Containment
+  COASTAL_BORDER_WIDTH: 3,        // Margin width in tiles of hostile coastal perimeter
+  COASTAL_EXPOSURE_DRAIN: 0.35,   // Additional metabolic drain per tick for lingering in coastal zone
+
   // Hydrology & Moisture CA
   WATER_FLOW_RATE: 0.25,     // Fraction of water transferred downhill per tick
   WATER_EVAP_RATE: 0.002,    // Fraction of standing water evaporated per tick
@@ -39,6 +43,7 @@ export const CONFIG = {
   SCENT_DEPOSIT: 1.0,
   SCENT_EVAPORATION: 0.02,
   SCENT_DIFFUSION: 0.04,
+  SCENT_COST: 0.08,          // Energy cost to emit territorial/navigation scent
 
   // Agent Energetics
   INITIAL_ENERGY: 100,
@@ -46,8 +51,10 @@ export const CONFIG = {
   REPRODUCTION_THRESHOLD: 115,
   REPRODUCTION_SPLIT: 0.5,   // Parent gives 50% energy to child
   BASAL_METABOLIC_DRAIN: 0.20,
+  MOISTURE_METABOLIC_RELIEF: 0.40, // Up to 40% metabolic drain relief in moist soils/trenches
   MOVE_ENERGY_BASE: 0.28,
-  TERRAFORM_ENERGY_COST: 3.5,
+  TERRAFORM_ENERGY_COST: 2.5,      // Reduced upfront excavation cost
+  ROOT_HARVEST_MAX: 4.5,           // Max energy recovered from subterranean roots/tubers on rich virgin soil (Net +2.0 ROI)
   GRAZE_MAX_INTAKE: 20.0,    // Max energy extracted from 1.0 biomass
   MAX_AGE: 1800,             // Max lifespan in ticks
 
@@ -60,7 +67,10 @@ export const CONFIG = {
   // Population Scaling & Floor Limits
   INITIAL_POPULATION: 200,
   MIN_POPULATION_FLOOR: 100,
-  MAX_POPULATION: 800
+  MAX_POPULATION: 800,
+
+  // Performance & Turbo Mode Throttling
+  TURBO_UI_FPS: 4            // Canvas & UI refresh rate in Turbo mode to dedicate CPU to simulation
 };
 
 export const ACTIONS = {

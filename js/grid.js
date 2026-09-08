@@ -29,6 +29,13 @@ export function classifyBiome(elevation, water, moisture, biomass) {
 }
 
 /**
+ * Returns true if coordinates fall within the hostile coastal boundary perimeter
+ */
+export function isCoastal(x, y, margin = CONFIG.COASTAL_BORDER_WIDTH || 3, width = CONFIG.GRID_WIDTH, height = CONFIG.GRID_HEIGHT) {
+  return (x < margin || x >= width - margin || y < margin || y >= height - margin);
+}
+
+/**
  * Fast seeded pseudo-random number generator (Mulberry32)
  */
 export function createPRNG(seed = 1337) {
@@ -118,6 +125,13 @@ export class Grid {
 
   inBounds(x, y) {
     return x >= 0 && x < this.width && y >= 0 && y < this.height;
+  }
+
+  /**
+   * Returns true if coordinates fall within the hostile coastal boundary perimeter
+   */
+  isCoastal(x, y, margin = CONFIG.COASTAL_BORDER_WIDTH || 3) {
+    return isCoastal(x, y, margin, this.width, this.height);
   }
 
   clampX(x) {
@@ -271,10 +285,15 @@ export class Grid {
         let fert = moist * 0.8 + (1 - Math.abs(elev - 0.4)) * 0.2;
         if (elev > 0.75) fert *= 0.3; // Rocky peaks have low fertility
         fert = Math.max(0.05, Math.min(1.0, fert));
+
+        // Inhospitable coastal perimeter: barren rock with zero fertility
+        if (this.isCoastal(x, y)) {
+          fert = 0.0;
+        }
         this.fertility[idx] = fert;
 
-        // Initial Biomass: seeded where moisture and fertility allow
-        if (this.water[idx] === 0 && moist > 0.25 && elev < 0.78) {
+        // Initial Biomass: seeded where moisture and fertility allow (forbidden on coastal perimeter)
+        if (!this.isCoastal(x, y) && this.water[idx] === 0 && moist > 0.25 && elev < 0.78) {
           this.biomass[idx] = Math.max(0, Math.min(1.0, fert * moist * (0.4 + rand() * 0.5)));
         } else {
           this.biomass[idx] = 0;
@@ -346,6 +365,19 @@ export class Grid {
     grid.trample.set(data.trample);
     if (data.scent) grid.scent.set(data.scent);
     if (data.occupancy) grid.occupancy.set(data.occupancy);
+
+    // Enforce inhospitable coastal perimeter on deserialized worlds
+    const margin = CONFIG.COASTAL_BORDER_WIDTH || 3;
+    for (let y = 0; y < grid.height; y++) {
+      for (let x = 0; x < grid.width; x++) {
+        if (isCoastal(x, y, margin, grid.width, grid.height)) {
+          const idx = grid.getIndex(x, y);
+          grid.fertility[idx] = 0;
+          grid.biomass[idx] = 0;
+        }
+      }
+    }
+
     return grid;
   }
 }

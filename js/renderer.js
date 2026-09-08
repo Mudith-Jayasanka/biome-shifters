@@ -5,7 +5,7 @@
  */
 
 import { CONFIG, ACTIONS } from './config.js';
-import { classifyBiome } from './grid.js';
+import { classifyBiome, isCoastal } from './grid.js';
 
 // Pre-computed RGB palettes for Whittaker biomes
 const BIOME_COLORS = {
@@ -21,6 +21,22 @@ const BIOME_COLORS = {
   GRASSLAND: [102, 172, 72],
   TROPICAL_RAINFOREST: [18, 110, 42],
   WETLAND_SWAMP: [52, 92, 78]
+};
+
+// Bio-luminescent / toxic irradiated Whittaker biome palette
+const IRRADIATED_BIOME_COLORS = {
+  DEEP_WATER: [14, 82, 108],         // Phosphorescent deep teal
+  SHALLOW_WATER: [32, 160, 168],     // Glowing cyan / aqua
+  MOUNTAIN_PEAK: [215, 248, 236],    // Irradiated pale crystalline peak
+  PINE_FOREST: [26, 120, 72],        // Toxic jade pine
+  ROCKY_HIGHLAND: [138, 120, 142],   // Radioactive violet-tinged crags
+  ARID_DESERT: [222, 170, 76],       // Scorched irradiated amber wasteland
+  SAVANNA: [195, 202, 48],           // Chartreuse scorched scrub
+  SHRUBLAND: [132, 182, 66],         // Neon-tinged shrub
+  TEMPERATE_FOREST: [38, 178, 102],  // Bio-luminescent emerald canopy
+  GRASSLAND: [115, 212, 58],         // Phosphor-bright mutant grass
+  TROPICAL_RAINFOREST: [16, 158, 76],// Dense radioactive jungle
+  WETLAND_SWAMP: [38, 128, 92]       // Glowing toxic marsh
 };
 
 export class Renderer {
@@ -84,6 +100,9 @@ export class Renderer {
   render(simulation, selectedAgentId = null, selectedTile = null) {
     if (!this.ctx || !simulation) return;
 
+    const isRadiationMode = Boolean(simulation.isRadiationMode);
+    const radMultiplier = simulation.radiationMultiplier || 4.0;
+
     const grid = simulation.grid;
     const w = grid.width;
     const h = grid.height;
@@ -94,11 +113,11 @@ export class Renderer {
     const viewHeight = this.canvas.height / dpr;
 
     // 1. Clear main viewport with dark space background
-    this.ctx.fillStyle = '#06090e';
+    this.ctx.fillStyle = isRadiationMode ? '#040d09' : '#06090e';
     this.ctx.fillRect(0, 0, viewWidth, viewHeight);
 
     // 2. Rasterize grid cells to offscreen pixel buffer
-    this.rasterizeGridLayer(grid);
+    this.rasterizeGridLayer(grid, isRadiationMode);
     this.offscreenCtx.putImageData(this.imageData, 0, 0);
 
     // 3. Apply Camera pan & zoom transformation
@@ -113,12 +132,22 @@ export class Renderer {
     this.ctx.drawImage(this.offscreenCanvas, 0, 0, worldW, worldH);
 
     // World border
-    this.ctx.strokeStyle = '#263342';
-    this.ctx.lineWidth = 1 / this.camera.zoom;
-    this.ctx.strokeRect(0, 0, worldW, worldH);
+    if (isRadiationMode) {
+      this.ctx.strokeStyle = '#4ade80';
+      this.ctx.lineWidth = Math.max(2, 3 / this.camera.zoom);
+      this.ctx.shadowColor = '#4ade80';
+      this.ctx.shadowBlur = 12;
+      this.ctx.strokeRect(0, 0, worldW, worldH);
+      this.ctx.shadowBlur = 0;
+    } else {
+      this.ctx.strokeStyle = '#263342';
+      this.ctx.lineWidth = 1 / this.camera.zoom;
+      this.ctx.strokeRect(0, 0, worldW, worldH);
+    }
 
     // 4. Render selected tile reticle
-    if (selectedTile && grid.inBounds(selectedTile.x, selectedTile.y)) {
+    const inBounds = grid.inBounds ? grid.inBounds(selectedTile?.x, selectedTile?.y) : (selectedTile && selectedTile.x >= 0 && selectedTile.x < w && selectedTile.y >= 0 && selectedTile.y < h);
+    if (selectedTile && inBounds) {
       const tx = selectedTile.x * CONFIG.CELL_SIZE_PX;
       const ty = selectedTile.y * CONFIG.CELL_SIZE_PX;
       this.ctx.strokeStyle = '#58a6ff';
@@ -130,12 +159,61 @@ export class Renderer {
     this.renderAgents(simulation.agents, selectedAgentId);
 
     this.ctx.restore();
+
+    // 6. If irradiated, draw HUD badge
+    if (isRadiationMode) {
+      this.renderRadiationHUD(viewWidth, viewHeight, radMultiplier);
+    }
+  }
+
+  /**
+   * Render glowing HUD indicator on irradiated islands
+   */
+  renderRadiationHUD(viewW, viewH, multiplier) {
+    const ctx = this.ctx;
+    ctx.save();
+    const text = `☢️ EXTREME MUTATION LAB (${multiplier.toFixed(1)}x)`;
+    ctx.font = '600 11px system-ui, -apple-system, sans-serif';
+    const textMetrics = ctx.measureText(text);
+    const boxW = textMetrics.width + 24;
+    const boxH = 26;
+    const padX = 16;
+    const padY = 16;
+
+    ctx.fillStyle = 'rgba(4, 28, 16, 0.88)';
+    ctx.strokeStyle = '#4ade80';
+    ctx.lineWidth = 1.5;
+    ctx.shadowColor = '#4ade80';
+    ctx.shadowBlur = 8;
+
+    const radius = 13;
+    const x = padX;
+    const y = padY;
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + boxW - radius, y);
+    ctx.quadraticCurveTo(x + boxW, y, x + boxW, y + radius);
+    ctx.lineTo(x + boxW, y + boxH - radius);
+    ctx.quadraticCurveTo(x + boxW, y + boxH, x + boxW - radius, y + boxH);
+    ctx.lineTo(x + radius, y + boxH);
+    ctx.quadraticCurveTo(x, y + boxH, x, y + boxH - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#86efac';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, x + 12, y + boxH / 2);
+    ctx.restore();
   }
 
   /**
    * Directly write 32-bit RGBA pixel values to offscreen buffer
    */
-  rasterizeGridLayer(grid) {
+  rasterizeGridLayer(grid, isRadiationMode = false) {
     const buf = this.imageBuffer32;
     const w = grid.width;
     const h = grid.height;
@@ -156,18 +234,40 @@ export class Renderer {
 
         switch (layer) {
           case 'biome': {
-            const biome = classifyBiome(elev[i], water[i], moist[i], bio[i]);
-            const c = BIOME_COLORS[biome] || [40, 40, 40];
-            r = c[0];
-            g = c[1];
-            b = c[2];
+            const coastal = isCoastal(x, y, CONFIG.COASTAL_BORDER_WIDTH || 3, w, h);
+            if (coastal) {
+              if (isRadiationMode) {
+                // Irradiated toxic salt flat / radioactive coastal reef
+                r = 30; g = 50; b = 45;
+              } else if (water[i] > 0.3) {
+                // Deep coastal surf
+                r = 16; g = 38; b = 90;
+              } else {
+                // Salty barren coastal rock / jagged shoreline
+                r = 48; g = 44; b = 40;
+              }
+            } else {
+              const biome = classifyBiome(elev[i], water[i], moist[i], bio[i]);
+              const palette = isRadiationMode ? IRRADIATED_BIOME_COLORS : BIOME_COLORS;
+              const c = palette[biome] || [40, 40, 40];
+              r = c[0];
+              g = c[1];
+              b = c[2];
+            }
 
-            // Overlay trampled paths subtly on biome map
-            if (trample[i] > 0.05 && water[i] < 0.2) {
+            // Overlay trampled paths subtly on biome map (interior dry land only)
+            if (!coastal && trample[i] > 0.05 && water[i] < 0.2) {
               const t = Math.min(1.0, trample[i]);
-              r = Math.floor(r * (1 - t * 0.4) + 160 * (t * 0.4));
-              g = Math.floor(g * (1 - t * 0.4) + 110 * (t * 0.4));
-              b = Math.floor(b * (1 - t * 0.4) + 75 * (t * 0.4));
+              if (isRadiationMode) {
+                // Radioactive trampled trail tinge
+                r = Math.floor(r * (1 - t * 0.4) + 130 * (t * 0.4));
+                g = Math.floor(g * (1 - t * 0.4) + 160 * (t * 0.4));
+                b = Math.floor(b * (1 - t * 0.4) + 60 * (t * 0.4));
+              } else {
+                r = Math.floor(r * (1 - t * 0.4) + 160 * (t * 0.4));
+                g = Math.floor(g * (1 - t * 0.4) + 110 * (t * 0.4));
+                b = Math.floor(b * (1 - t * 0.4) + 75 * (t * 0.4));
+              }
             }
             break;
           }
@@ -335,9 +435,9 @@ export class Renderer {
     ctx.fillRect(0, 0, w, h);
 
     const brain = agent.brain;
-    const inCount = Math.min(12, brain.inputSize); // Sample representative nodes for mini display
-    const hidCount = brain.hiddenSize; // 16
-    const outCount = brain.outputSize; // 9
+    const inCount = Math.min(12, brain.inputSize || 37);
+    const outCount = brain.outputSize || 9;
+    const hidCount = brain.hiddenSize || (brain.weightsOutput ? Math.floor(brain.weightsOutput.length / outCount) : 24);
 
     const colX = [30, w / 2, w - 30];
 
@@ -349,18 +449,20 @@ export class Renderer {
 
     // Draw synapic connections from hidden to output
     const weightsOut = brain.weightsOutput;
-    for (let hid = 0; hid < hidCount; hid++) {
-      const hy = getNodeY(hid, hidCount);
-      for (let out = 0; out < outCount; out++) {
-        const oy = getNodeY(out, outCount);
-        const weight = weightsOut[hid * outCount + out];
-        if (Math.abs(weight) > 0.3) {
-          ctx.strokeStyle = weight > 0 ? 'rgba(63, 185, 80, 0.25)' : 'rgba(248, 81, 73, 0.25)';
-          ctx.lineWidth = Math.min(2, Math.abs(weight));
-          ctx.beginPath();
-          ctx.moveTo(colX[1], hy);
-          ctx.lineTo(colX[2], oy);
-          ctx.stroke();
+    if (weightsOut) {
+      for (let hid = 0; hid < hidCount; hid++) {
+        const hy = getNodeY(hid, hidCount);
+        for (let out = 0; out < outCount; out++) {
+          const oy = getNodeY(out, outCount);
+          const weight = weightsOut[hid * outCount + out];
+          if (Math.abs(weight) > 0.3) {
+            ctx.strokeStyle = weight > 0 ? 'rgba(63, 185, 80, 0.25)' : 'rgba(248, 81, 73, 0.25)';
+            ctx.lineWidth = Math.min(2, Math.abs(weight));
+            ctx.beginPath();
+            ctx.moveTo(colX[1], hy);
+            ctx.lineTo(colX[2], oy);
+            ctx.stroke();
+          }
         }
       }
     }
@@ -368,7 +470,7 @@ export class Renderer {
     // Draw Input nodes
     for (let i = 0; i < inCount; i++) {
       const ny = getNodeY(i, inCount);
-      const val = agent.sensorBuffer[i] || 0;
+      const val = (agent.sensorBuffer ? agent.sensorBuffer[i] : (agent.lastInputs ? agent.lastInputs[i] : 0)) || 0;
       ctx.fillStyle = val > 0.5 ? '#58a6ff' : '#263342';
       ctx.beginPath();
       ctx.arc(colX[0], ny, 3, 0, Math.PI * 2);
@@ -376,9 +478,10 @@ export class Renderer {
     }
 
     // Draw Hidden nodes (glowing based on persistent carry activation)
+    const hiddenArr = brain.hiddenState || agent.hiddenState || [];
     for (let i = 0; i < hidCount; i++) {
       const ny = getNodeY(i, hidCount);
-      const act = brain.hiddenState[i] || 0;
+      const act = hiddenArr[i] || 0;
       const intensity = Math.min(255, Math.floor(Math.abs(act) * 200 + 55));
       ctx.fillStyle = act >= 0 ? `rgb(50, ${intensity}, 80)` : `rgb(${intensity}, 50, 60)`;
       ctx.beginPath();
@@ -430,7 +533,7 @@ export class Renderer {
       ctx.stroke();
     }
 
-    const capacity = simulation.historyCapacity;
+    const capacity = simulation.historyCapacity || (hist.pop ? hist.pop.length : 120);
     const startIdx = (hist.head - count + capacity) % capacity;
 
     // Find scale limits
@@ -439,7 +542,7 @@ export class Renderer {
       const idx = (startIdx + i) % capacity;
       if (hist.biomass[idx] > maxBio) maxBio = hist.biomass[idx];
     }
-    const maxPop = Math.max(100, simulation.maxPopulation || 800);
+    const maxPop = Math.max(100, simulation.maxPopulation || (simulation.stats ? simulation.stats.maxPopulation : 800) || 800);
 
     const padTop = 8;
     const padBottom = 8;
@@ -482,10 +585,11 @@ export class Renderer {
     ctx.fill();
 
     // End label for current pop
+    const curPop = simulation.agents ? simulation.agents.length : (simulation.stats ? simulation.stats.population : 0);
     ctx.font = '9px monospace';
     ctx.textAlign = 'left';
     ctx.fillStyle = '#a5d6ff';
-    ctx.fillText(`${simulation.agents.length}`, lastX + 5, Math.max(12, Math.min(h - 4, latestPopY + 3)));
+    ctx.fillText(`${curPop}`, lastX + 5, Math.max(12, Math.min(h - 4, latestPopY + 3)));
   }
 
   /**
@@ -500,8 +604,8 @@ export class Renderer {
     ctx.fillStyle = '#06090e';
     ctx.fillRect(0, 0, w, h);
 
-    const counts = simulation.stats.generationCounts;
-    const totalPop = simulation.agents.length;
+    const counts = simulation.stats ? simulation.stats.generationCounts : [];
+    const totalPop = simulation.agents ? simulation.agents.length : (simulation.stats ? simulation.stats.population : 0);
 
     if (!counts || counts.length === 0 || totalPop === 0) {
       ctx.fillStyle = '#484f58';

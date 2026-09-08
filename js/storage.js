@@ -27,10 +27,19 @@ export class StorageManager {
     }
   }
 
-  static async saveSimulation(simulation, customName = '') {
+  static async saveSimulation(simulationOrData, customName = '', isAutosave = false) {
     try {
       const name = customName.trim() || `save_${Date.now()}`;
-      const payload = simulation.toJSON(name);
+      let payload;
+      if (simulationOrData && typeof simulationOrData.toJSON === 'function') {
+        payload = simulationOrData.toJSON(name);
+      } else if (typeof simulationOrData === 'object') {
+        payload = { ...simulationOrData };
+        payload.name = payload.name || name;
+      } else {
+        throw new Error('Invalid simulation data to save');
+      }
+      payload.isAutosave = Boolean(isAutosave);
       const res = await fetch('/api/saves', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -55,6 +64,13 @@ export class StorageManager {
       console.error(`Failed to delete save ${filename}:`, err);
       throw err;
     }
+  }
+
+  static async clearAutosaves(allSaves) {
+    const autosaves = (allSaves || []).filter(s => s.isAutosave);
+    const deletePromises = autosaves.map(s => this.deleteSave(s.filename).catch(() => null));
+    await Promise.all(deletePromises);
+    return autosaves.length;
   }
 }
 

@@ -27,7 +27,12 @@ Before writing or editing code for **ANY** implementation request (whether a new
 3. **Register in `tasks/README.md`**:
    - Update the task list table and dependency chain diagram in `tasks/README.md`.
 
-4. **Proceed to Implementation**:
+4. **Cross-Check Existing Implementations for Conflicts**:
+   - When starting a task (especially older or pre-drafted tasks), cross-check the task specification against existing code, recent features, and earlier tasks.
+   - **Non-Conflicting Improvements**: If the task is a non-conflicting improvement, extension, or natural refactoring, proceed directly with implementation without interrupting or warning the user.
+   - **Direct Conflicts**: If the task introduces a direct contradiction, breaking incompatibility, or architectural collision (e.g. conflicting state schemas, broken invariants, incompatible save formats, or mutually exclusive mechanics), STOP and warn the user immediately with a clear explanation and proposed resolution before writing code.
+
+5. **Proceed to Implementation**:
    - Implement the code as specified in the registered task document.
    - Upon completion and verification, update the task status in `tasks/TASK_XX_...md` to `DONE`.
    - Present the completed work and verification to the user.

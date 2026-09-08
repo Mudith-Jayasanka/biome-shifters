@@ -17,6 +17,7 @@
         <span class="hud-icon">🌍</span>
         <h1 class="hud-title">Biome Shifters</h1>
         <span class="hud-badge">v1.0</span>
+        <span id="hud-role-badge" class="hud-badge hud-badge-role">👑 Host Admin</span>
       </div>
 
       <div class="hud-group hud-controls">
@@ -30,7 +31,7 @@
           <button class="btn btn-speed" data-speed="2" title="Fast 2x Speed">2x</button>
           <button class="btn btn-speed" data-speed="5" title="Very Fast 5x Speed">5x</button>
           <button class="btn btn-speed" data-speed="10" title="Ultra Fast 10x Speed">10x</button>
-          <button class="btn btn-speed btn-turbo" data-speed="turbo" title="Turbo Mode (Uncapped Microtask Pump)">⚡ Turbo</button>
+          <button class="btn btn-speed btn-turbo" data-speed="turbo" title="Turbo Mode (Max Simulation Speed, Canvas Throttled to 4 FPS)">⚡ Turbo</button>
         </div>
 
         <div class="quick-spawn-group">
@@ -50,12 +51,75 @@
         </div>
 
         <div class="action-buttons">
+          <button id="btn-cluster-hud" class="btn btn-secondary" title="View Connected Cluster Nodes & LAN Link">
+            🌐 Cluster <span id="badge-cluster-nodes-count" class="tab-badge">1</span>
+          </button>
           <button id="btn-save" class="btn btn-secondary" title="Save Simulation State">💾 Save</button>
           <button id="btn-load-list" class="btn btn-secondary" title="Open Saved Simulations">📂 Load</button>
+          <button id="btn-autosave-hud" class="btn btn-secondary btn-autosave-hud" title="Auto-Save Configuration & Status">⏱️ Auto: ON (2m)</button>
           <button id="btn-reset" class="btn btn-danger" title="Re-seed Simulation World">🔄 Reset</button>
         </div>
       </div>
     </header>
+
+    <!-- 8-Island Core Switcher & Migration Bar -->
+    <nav id="island-bar" class="island-bar" aria-label="Simulation Islands">
+      <div class="island-bar-scroll" id="island-buttons-container">
+        <button class="btn-island active" data-island="0" title="Switch to Island 1 (Key 1)">
+          <span class="island-icon">🏝️</span>
+          <span class="island-name">Island 1</span>
+          <span class="island-pill" id="badge-island-0">Gen 1 • 200</span>
+        </button>
+        <button class="btn-island" data-island="1" title="Switch to Island 2 (Key 2)">
+          <span class="island-icon">🏝️</span>
+          <span class="island-name">Island 2</span>
+          <span class="island-pill" id="badge-island-1">Gen 1 • 200</span>
+        </button>
+        <button class="btn-island" data-island="2" title="Switch to Island 3 (Key 3)">
+          <span class="island-icon">🏝️</span>
+          <span class="island-name">Island 3</span>
+          <span class="island-pill" id="badge-island-2">Gen 1 • 200</span>
+        </button>
+        <button class="btn-island" data-island="3" title="Switch to Island 4 (Key 4)">
+          <span class="island-icon">🏝️</span>
+          <span class="island-name">Island 4</span>
+          <span class="island-pill" id="badge-island-3">Gen 1 • 200</span>
+        </button>
+        <button class="btn-island" data-island="4" title="Switch to Island 5 (Key 5)">
+          <span class="island-icon">🏝️</span>
+          <span class="island-name">Island 5</span>
+          <span class="island-pill" id="badge-island-4">Gen 1 • 200</span>
+        </button>
+        <button class="btn-island" data-island="5" title="Switch to Island 6 (Key 6)">
+          <span class="island-icon">🏝️</span>
+          <span class="island-name">Island 6</span>
+          <span class="island-pill" id="badge-island-5">Gen 1 • 200</span>
+        </button>
+        <button class="btn-island" data-island="6" title="Switch to Island 7 (Key 7)">
+          <span class="island-icon">🏝️</span>
+          <span class="island-name">Island 7</span>
+          <span class="island-pill" id="badge-island-6">Gen 1 • 200</span>
+        </button>
+        <button class="btn-island" data-island="7" title="Switch to Island 8 (Key 8)">
+          <span class="island-icon">🏝️</span>
+          <span class="island-name">Island 8</span>
+          <span class="island-pill" id="badge-island-7">Gen 1 • 200</span>
+        </button>
+      </div>
+      <div class="island-bar-stats">
+        <div class="multi-core-badge" title="Combined Multi-Core TPS across all 8 parallel islands">
+          <span class="core-dot"></span>
+          <span class="core-label">8 Cores:</span>
+          <span id="stat-combined-tps" class="core-value mono">0 TPS</span>
+        </div>
+        <div class="migration-hud-group" title="Cross-Island Genetic Migration: Spreads top Darwinian brains across islands">
+          <button id="btn-migrate-now" class="btn btn-migrate" title="Broadcast best elite genomes across all islands now">
+            <span>🧬 Migrate Now</span>
+          </button>
+          <span id="migration-timer-text" class="mono text-xs">Next: 800t</span>
+        </div>
+      </div>
+    </nav>
 
     <!-- Main Workspace: Viewport & Inspector -->
     <main id="main-container">
@@ -74,6 +138,12 @@
           <span>Toggle Inspector: <strong>I</strong></span>
         </div>
 
+        <!-- Floating Migration HUD Toast Notification -->
+        <div id="hud-migration-toast" class="hud-migration-toast hidden">
+          <span class="toast-icon">🧬</span>
+          <span id="toast-migration-text">Migration Epoch 1: Exchanged 4 genomes across 2 machines</span>
+        </div>
+
         <!-- Floating Button to Unhide Sidebar when Collapsed -->
         <button id="btn-unhide-sidebar" class="sidebar-unhide-btn hidden" title="Show Inspector (I)">
           <span>◀</span>
@@ -89,6 +159,61 @@
         </div>
 
         <div class="sidebar-content">
+          <!-- 8-Island Multi-Core Matrix Card -->
+          <div class="inspector-card" id="card-multi-island">
+            <div class="card-header" title="Click to collapse/expand">
+              <span class="card-icon">🌐</span>
+              <h3>8-Island Cores</h3>
+              <span class="card-badge mono" id="multi-island-tps-badge">Active: Island 1</span>
+              <span class="card-collapse-icon">▾</span>
+            </div>
+            <div class="card-body">
+              <div class="multi-island-summary">
+                <div class="stat-row">
+                  <span class="stat-name">Active Viewport:</span>
+                  <span class="stat-val mono highlight-action" id="multi-active-island-name">Island 1</span>
+                </div>
+                <div class="stat-row">
+                  <span class="stat-name">Combined 8-Core TPS:</span>
+                  <span class="stat-val mono highlight-pop" id="multi-combined-tps">0 TPS</span>
+                </div>
+                <div class="stat-row">
+                  <span class="stat-name">Migration Epoch:</span>
+                  <span class="stat-val mono" id="multi-migration-epoch">Epoch 0</span>
+                </div>
+                <div class="stat-row">
+                  <span class="stat-name">Total Cross-Migrants:</span>
+                  <span class="stat-val mono" id="multi-total-migrants">0</span>
+                </div>
+                <div class="stat-row" id="row-island-radiation" style="align-items: center;">
+                  <span class="stat-name">Radiation Lab:</span>
+                  <div style="display: flex; align-items: center; gap: 6px;">
+                    <span class="stat-val mono" id="active-island-radiation-status" style="font-size: 0.72rem;">Normal (1.0x)</span>
+                    <button id="btn-toggle-active-radiation" class="btn btn-xs btn-radiation-toggle" title="Toggle Radiation & Extreme Mutation Mode for this active island">
+                      ☢️ Mutate
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="table-responsive">
+                <table class="island-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Gen</th>
+                      <th>Pop</th>
+                      <th>TPS</th>
+                      <th>Immigrants</th>
+                    </tr>
+                  </thead>
+                  <tbody id="island-table-body">
+                    <!-- Dynamic 8 Island rows -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
           <!-- World & Ecosystem Telemetry Card -->
           <div class="inspector-card" id="card-telemetry">
             <div class="card-header" title="Click to collapse/expand">
@@ -162,6 +287,10 @@
               <div class="stat-row">
                 <span class="stat-name">Elites Preserved:</span>
                 <span class="stat-val mono" id="stat-elites-count">0 / 25</span>
+              </div>
+              <div class="stat-row">
+                <span class="stat-name">Immigrants Received:</span>
+                <span class="stat-val mono highlight-action" id="stat-active-immigrants">0</span>
               </div>
 
               <!-- Live Generation Distribution Graph -->
@@ -272,6 +401,10 @@
                   <span class="stat-val" id="agent-species">—</span>
                 </div>
                 <div class="stat-row">
+                  <span class="stat-name">Island Origin:</span>
+                  <span class="stat-val mono" id="agent-origin">—</span>
+                </div>
+                <div class="stat-row">
                   <span class="stat-name">Generation:</span>
                   <span class="stat-val mono" id="agent-gen">—</span>
                 </div>
@@ -309,8 +442,8 @@
                     <canvas id="brain-canvas" width="280" height="140"></canvas>
                   </div>
                   <div class="brain-legend">
-                    <span>Input (29)</span>
-                    <span>Hidden (16)</span>
+                    <span>Input (37)</span>
+                    <span>Hidden (24)</span>
                     <span>Output (9)</span>
                   </div>
                 </div>
@@ -321,6 +454,256 @@
       </aside>
     </main>
 
+    <!-- Contributor Join Dialog (For LAN Clients) -->
+    <div id="cluster-join-modal" class="modal-backdrop hidden">
+      <div class="modal-dialog modal-join-dialog">
+        <div class="modal-header">
+          <div class="modal-header-brand">
+            <span class="hud-icon">🌍</span>
+            <h2>Join Distributed Island Cluster</h2>
+          </div>
+        </div>
+        <div class="modal-body">
+          <p class="join-description">
+            Connect your device to the simulation session. Your browser will run dedicated Web Workers to simulate additional parallel islands, contributing compute power to the shared evolutionary ecosystem.
+          </p>
+
+          <div class="join-form-group">
+            <label for="input-node-name" class="join-label">Your Machine / Device Name:</label>
+            <input type="text" id="input-node-name" class="custom-input" placeholder="e.g. Alex's Laptop" maxlength="32">
+          </div>
+
+          <div class="join-form-group">
+            <label class="join-label">Dedicated CPU Cores (Islands):</label>
+            <div class="cores-selector-group" id="join-cores-selector">
+              <button type="button" class="btn-core-option" data-cores="1">1 Core</button>
+              <button type="button" class="btn-core-option active" data-cores="2">2 Cores</button>
+              <button type="button" class="btn-core-option" data-cores="4">4 Cores</button>
+              <button type="button" class="btn-core-option" data-cores="8">8 Cores</button>
+            </div>
+            <div class="core-hint-text">Each core runs 1 isolated island world. 2 to 4 cores recommended.</div>
+          </div>
+
+          <div class="cluster-preview-card">
+            <div class="stat-row">
+              <span class="stat-name">Host Address:</span>
+              <span class="stat-val mono" id="join-host-addr">Detecting...</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-name">Active Cluster Cores:</span>
+              <span class="stat-val mono highlight-action" id="join-cluster-cores">—</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-name">Cluster TPS:</span>
+              <span class="stat-val mono highlight-pop" id="join-cluster-tps">—</span>
+            </div>
+          </div>
+
+          <div class="join-actions">
+            <button id="btn-join-cluster-submit" class="btn btn-primary btn-join-cluster">
+              🚀 Join Cluster & Start Simulating
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Contributor Worker Node Screen Saver Overlay (Zero-Render Mode) -->
+    <div id="worker-screensaver-overlay" class="worker-screensaver-backdrop hidden">
+      <div class="screensaver-card">
+        <div class="screensaver-badge-bar">
+          <div class="screensaver-status">
+            <span class="screensaver-pulse-dot"></span>
+            <span class="screensaver-title">BACKGROUND WORKER ACTIVE</span>
+          </div>
+          <span class="screensaver-power-pill">⚡ ZERO-RENDER MODE</span>
+        </div>
+
+        <div class="screensaver-radar-container">
+          <canvas id="screensaver-radar-canvas" width="560" height="140"></canvas>
+          <div class="screensaver-scanline"></div>
+        </div>
+
+        <div class="screensaver-stats-grid">
+          <div class="screensaver-stat-item">
+            <span class="screensaver-stat-label">Assigned Islands</span>
+            <span class="screensaver-stat-val mono highlight-action" id="screensaver-islands">—</span>
+          </div>
+          <div class="screensaver-stat-item">
+            <span class="screensaver-stat-label">Processing Rate</span>
+            <span class="screensaver-stat-val mono highlight-pop" id="screensaver-tps">0 TPS</span>
+          </div>
+          <div class="screensaver-stat-item">
+            <span class="screensaver-stat-label">Active Entities</span>
+            <span class="screensaver-stat-val mono highlight-biomass" id="screensaver-pop">0 Agents</span>
+          </div>
+          <div class="screensaver-stat-item">
+            <span class="screensaver-stat-label">Hardware Profile</span>
+            <span class="screensaver-stat-val mono" id="screensaver-power">100% CPU Dedicated</span>
+          </div>
+        </div>
+
+        <div class="screensaver-progress-box">
+          <div class="screensaver-progress-info">
+            <span class="screensaver-progress-title">Crunching Evolutionary Generations</span>
+            <span class="screensaver-progress-sub mono" id="screensaver-cycle-text">Computing in background...</span>
+          </div>
+          <div class="screensaver-progress-track">
+            <div class="screensaver-progress-indicator"></div>
+          </div>
+        </div>
+
+        <div class="screensaver-lock-message">
+          🔒 Visual canvas rendering suspended by Host Admin to dedicate 100% compute cycles to island simulations.<br>
+          Awaiting Host Unhide signal...
+        </div>
+      </div>
+    </div>
+
+    <!-- Host Cluster Nodes Dashboard Modal -->
+    <div id="modal-cluster-nodes" class="modal-backdrop hidden">
+      <div class="modal-dialog modal-cluster-dialog">
+        <div class="modal-header">
+          <div class="modal-header-brand">
+            <span class="hud-icon">🌐</span>
+            <h2>Distributed LAN Cluster Dashboard</h2>
+          </div>
+          <button id="btn-close-cluster-modal" class="btn-icon">✕</button>
+        </div>
+        <div class="modal-body">
+          <!-- Invite Link Banner -->
+          <div class="cluster-invite-banner">
+            <div class="invite-info">
+              <div class="invite-title">📡 Shareable LAN Invite Link</div>
+              <div class="invite-subtext">Friends on your Wi-Fi network can open this link to simulate their own islands and pool CPU cores:</div>
+              <div class="invite-link-box mono" id="cluster-lan-url-display">http://...</div>
+            </div>
+            <button id="btn-copy-invite-link" class="btn btn-primary btn-copy-invite" title="Copy LAN Invite Link to Clipboard">
+              📋 Copy Invite Link
+            </button>
+          </div>
+
+          <!-- Cluster Metrics Ribbon -->
+          <div class="cluster-metrics-ribbon">
+            <div class="cluster-metric-card">
+              <div class="metric-label">Connected Machines</div>
+              <div class="metric-val mono" id="metric-cluster-nodes">1 Node</div>
+            </div>
+            <div class="cluster-metric-card">
+              <div class="metric-label">Dedicated Cores</div>
+              <div class="metric-val mono highlight-action" id="metric-cluster-cores">8 Cores</div>
+            </div>
+            <div class="cluster-metric-card">
+              <div class="metric-label">Parallel Islands</div>
+              <div class="metric-val mono highlight-action" id="metric-cluster-islands">8 Islands</div>
+            </div>
+            <div class="cluster-metric-card">
+              <div class="metric-label">Combined Cluster TPS</div>
+              <div class="metric-val mono highlight-pop" id="metric-cluster-tps">0 TPS</div>
+            </div>
+            <div class="cluster-metric-card">
+              <div class="metric-label">Total Population</div>
+              <div class="metric-val mono highlight-biomass" id="metric-cluster-pop">0 Agents</div>
+            </div>
+          </div>
+
+          <!-- Connected Nodes Table -->
+          <div class="cluster-table-container">
+            <div class="cluster-table-header">
+              <h3>Connected Cluster Nodes</h3>
+              <span class="cluster-live-indicator">
+                <span class="core-dot"></span> Live Sync
+              </span>
+            </div>
+            <div class="cluster-table-scroll">
+              <table class="cluster-nodes-table">
+                <thead>
+                  <tr>
+                    <th>Machine / Device</th>
+                    <th>Role</th>
+                    <th>IP Address</th>
+                    <th>Cores</th>
+                    <th>Simulated Islands</th>
+                    <th>Current TPS</th>
+                    <th>Population</th>
+                    <th>Performance</th>
+                    <th>Status</th>
+                    <th style="text-align: right; padding-right: 14px;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="cluster-nodes-table-body">
+                  <!-- Dynamically populated via GET /api/cluster/nodes -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Satellite Viewport Snooper Modal (Task 41) -->
+    <div id="modal-island-cam" class="modal-backdrop hidden">
+      <div class="modal-dialog modal-snooper-dialog">
+        <div class="modal-header">
+          <div class="snooper-header-title">
+            <span class="snooper-radar-icon">🛰️</span>
+            <div>
+              <h2 id="snooper-island-title">Satellite Cam — Island 9</h2>
+              <span class="snooper-node-subtitle mono" id="snooper-node-subtitle">Contributor (192.168.1.50)</span>
+            </div>
+          </div>
+          <div class="snooper-header-actions">
+            <span id="snooper-live-badge" class="snooper-badge-live">
+              <span class="core-dot"></span> LIVE FEED
+            </span>
+            <button id="snooper-btn-close" class="btn-icon">✕</button>
+          </div>
+        </div>
+        <div class="modal-body snooper-body">
+          <div class="snooper-viewport-frame" id="snooper-viewport-frame">
+            <img id="snooper-image" class="snooper-image" alt="Satellite feed" />
+            <div class="snooper-scanline"></div>
+            <div id="snooper-rad-watermark" class="snooper-rad-watermark hidden">☢️ EXTREME MUTATION LAB</div>
+            <div id="snooper-loading-overlay" class="snooper-loading-overlay hidden">
+              <span class="snooper-spinner"></span>
+              <span>Acquiring satellite feed...</span>
+            </div>
+          </div>
+
+          <div class="snooper-telemetry-grid">
+            <div class="snooper-stat-cell">
+              <span class="snooper-stat-name">Population</span>
+              <span class="snooper-stat-val mono highlight-pop" id="snooper-stat-pop">0</span>
+            </div>
+            <div class="snooper-stat-cell">
+              <span class="snooper-stat-name">Current TPS</span>
+              <span class="snooper-stat-val mono highlight-action" id="snooper-stat-tps">0 TPS</span>
+            </div>
+            <div class="snooper-stat-cell">
+              <span class="snooper-stat-name">World Ticks</span>
+              <span class="snooper-stat-val mono" id="snooper-stat-tick">0</span>
+            </div>
+            <div class="snooper-stat-cell">
+              <span class="snooper-stat-name">Mutation Mode</span>
+              <span class="snooper-stat-val mono" id="snooper-stat-radiation">Standard (1.0x)</span>
+            </div>
+          </div>
+
+          <div class="snooper-actions-row">
+            <button id="snooper-btn-toggle-radiation" class="btn btn-sm btn-radiation-toggle">
+              ☢️ Toggle Radiation
+            </button>
+            <div class="snooper-actions-right">
+              <span class="text-muted text-xs mono" id="snooper-stat-age">Updated: —</span>
+              <button id="snooper-btn-refresh" class="btn btn-sm btn-secondary" title="Manually request fresh satellite frame">
+                🔄 Refresh
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Modal Dialog for Save/Load -->
     <div id="modal-container" class="modal-backdrop hidden">
       <div class="modal-dialog">
@@ -330,9 +713,40 @@
         </div>
         <div class="modal-body">
           <div class="modal-create-row">
-            <input type="text" id="save-name-input" placeholder="Enter save name..." maxlength="48">
+            <input type="text" id="save-name-input" placeholder="Enter manual save name..." maxlength="48">
             <button id="btn-save-confirm" class="btn btn-primary">Save Current State</button>
           </div>
+
+          <!-- Auto-Save Settings Bar -->
+          <div class="modal-autosave-bar">
+            <label class="autosave-toggle-label">
+              <input type="checkbox" id="autosave-toggle" checked>
+              <span class="autosave-toggle-text">Enable Auto-Save</span>
+            </label>
+            <div class="autosave-interval-wrapper">
+              <label for="autosave-interval-select">Interval:</label>
+              <select id="autosave-interval-select" class="dropdown-select-sm">
+                <option value="1">1 min</option>
+                <option value="2" selected>2 min</option>
+                <option value="5">5 min</option>
+                <option value="10">10 min</option>
+                <option value="15">15 min</option>
+              </select>
+            </div>
+            <span id="autosave-status-text" class="autosave-status-text">Next: ~2m</span>
+          </div>
+
+          <!-- Save Categorization Tabs -->
+          <div class="modal-tabs">
+            <button id="tab-manual-saves" class="modal-tab active">
+              💾 Manual Saves <span id="badge-manual-count" class="tab-badge">0</span>
+            </button>
+            <button id="tab-auto-saves" class="modal-tab">
+              ⏱️ Auto-Saves <span id="badge-auto-count" class="tab-badge">0</span>
+            </button>
+            <button id="btn-clear-autosaves" class="btn btn-sm btn-danger hidden" title="Delete all autosave files">Clear Auto-Saves</button>
+          </div>
+
           <div class="saves-list-wrapper">
             <div id="saves-list-loading" class="saves-loading hidden">Loading saves...</div>
             <ul id="saves-list" class="saves-list">
@@ -340,6 +754,16 @@
             </ul>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Full-Screen Loading Overlay for Simulation Restore -->
+    <div id="loading-overlay" class="loading-overlay hidden">
+      <div class="loading-spinner-box">
+        <div class="spinner-ring"></div>
+        <div id="loading-overlay-title" class="loading-title">Loading Simulation</div>
+        <div id="loading-overlay-status" class="loading-status-text">Restoring island worlds & neural populations...</div>
+        <div class="loading-subtext">Please wait, this will only take a moment</div>
       </div>
     </div>
   </div>

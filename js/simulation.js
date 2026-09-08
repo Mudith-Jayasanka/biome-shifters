@@ -22,13 +22,20 @@ export class Simulation {
     this.agents = [];
     this.nextAgentId = 1;
 
+    this.islandId = config.islandId !== undefined ? config.islandId : 0;
+    this.immigrantsReceived = 0;
+
     // Top historical genetic performers preserved for extinction recovery
     this.eliteArchive = [];
     this.maxEliteArchiveSize = 25;
 
     // Dynamic Population Ceiling & Safety Floor
-    this.maxPopulation = CONFIG.MAX_POPULATION || 800;
-    this.minPopulationFloor = CONFIG.MIN_POPULATION_FLOOR || 100;
+    this.maxPopulation = config.maxPopulation || CONFIG.MAX_POPULATION || 800;
+    this.minPopulationFloor = config.minPopulationFloor || CONFIG.MIN_POPULATION_FLOOR || 100;
+
+    // Radiation & Extreme Mutation Laboratory Mode
+    this.isRadiationMode = Boolean(config.isRadiationMode);
+    this.radiationMultiplier = Number(config.radiationMultiplier) || 4.0;
 
     // Historical telemetry buffers (120 samples recorded every 10 ticks = 1200 ticks of history)
     this.historyCapacity = 120;
@@ -45,6 +52,7 @@ export class Simulation {
     // Live world metrics
     this.stats = {
       tick: 0,
+      islandId: this.islandId,
       population: 0,
       maxPopulation: this.maxPopulation,
       minPopulationFloor: this.minPopulationFloor,
@@ -55,8 +63,21 @@ export class Simulation {
       generationMaxAllTime: 1,
       generationAvg: 1,
       generationCounts: [],
-      elitesCount: 0
+      elitesCount: 0,
+      immigrantsReceived: 0,
+      isRadiationMode: this.isRadiationMode,
+      radiationMultiplier: this.radiationMultiplier
     };
+  }
+
+  /**
+   * Set Radiation & Extreme Mutation Laboratory Mode
+   */
+  setRadiationMode(enabled, multiplier = 4.0) {
+    this.isRadiationMode = Boolean(enabled);
+    this.radiationMultiplier = Number(multiplier) || 4.0;
+    this.stats.isRadiationMode = this.isRadiationMode;
+    this.stats.radiationMultiplier = this.radiationMultiplier;
   }
 
   /**
@@ -100,12 +121,13 @@ export class Simulation {
    * Employs multi-tier progressive relaxation to guarantee spawning never deadlocks.
    */
   findSpawnLocation() {
-    // Stage 1: Ideal conditions (dry lowland / plains, unoccupied)
+    // Stage 1: Ideal conditions (dry inland lowland / plains, unoccupied)
     for (let attempt = 0; attempt < 50; attempt++) {
       const x = Math.floor(Math.random() * this.width);
       const y = Math.floor(Math.random() * this.height);
 
       if (
+        !this.grid.isCoastal(x, y) &&
         this.grid.getWater(x, y) < 0.25 &&
         this.grid.getElevation(x, y) < 0.80 &&
         this.grid.getOccupant(x, y) === -1
@@ -114,12 +136,13 @@ export class Simulation {
       }
     }
 
-    // Stage 2: Relaxed conditions (any non-submerged land, including highlands, unoccupied)
+    // Stage 2: Relaxed conditions (any non-submerged inland cell, unoccupied)
     for (let attempt = 0; attempt < 50; attempt++) {
       const x = Math.floor(Math.random() * this.width);
       const y = Math.floor(Math.random() * this.height);
 
       if (
+        !this.grid.isCoastal(x, y) &&
         this.grid.getWater(x, y) < 0.35 &&
         this.grid.getOccupant(x, y) === -1
       ) {
@@ -127,7 +150,7 @@ export class Simulation {
       }
     }
 
-    // Stage 3: Deterministic fallback scan across grid for any dry unoccupied cell
+    // Stage 3: Deterministic fallback scan across grid for any dry inland unoccupied cell
     const total = this.grid.size;
     const startIdx = Math.floor(Math.random() * total);
     for (let offset = 0; offset < total; offset++) {
@@ -136,6 +159,7 @@ export class Simulation {
       const y = Math.floor(idx / this.width);
 
       if (
+        !this.grid.isCoastal(x, y) &&
         this.grid.water[idx] < 0.40 &&
         this.grid.occupancy[idx] === -1
       ) {
@@ -184,7 +208,9 @@ export class Simulation {
       if (this.eliteArchive.length > 0 && Math.random() < 0.65) {
         const elite = this.eliteArchive[Math.floor(Math.random() * this.eliteArchive.length)];
         brain = elite.brain.clone();
-        brain.mutate(CONFIG.MUTATION_RATE_DEFAULT * 1.5, 0.25);
+        const mutMult = this.isRadiationMode ? this.radiationMultiplier : 1.0;
+        const mutStrength = this.isRadiationMode ? 0.45 : 0.25;
+        brain.mutate(CONFIG.MUTATION_RATE_DEFAULT * 1.5 * mutMult, mutStrength);
       } else {
         brain = new NeuralNet();
       }
@@ -218,10 +244,10 @@ export class Simulation {
    * Preserve high-performing brains for extinction recovery
    */
   recordPotentialElite(agent) {
-    if (agent.age < 60 && agent.biomassEaten < 0.5) return;
+    if (agent.age < 60 && agent.biomassEaten < 0.5 && (agent.rootsHarvested || 0) < 2.0) return;
 
-    // True biological Darwinian fitness: lifespan + biomass consumed + offspring raised
-    const fitness = agent.age + (agent.biomassEaten * 25) + (agent.offspringCount * 300);
+    // True biological Darwinian fitness: lifespan + biomass consumed + offspring raised + subterranean roots harvested
+    const fitness = agent.age + (agent.biomassEaten * 25) + (agent.offspringCount * 300) + ((agent.rootsHarvested || 0) * 8);
     const brainCopy = agent.brain.clone();
 
     this.eliteArchive.push({
@@ -234,6 +260,107 @@ export class Simulation {
     if (this.eliteArchive.length > this.maxEliteArchiveSize) {
       this.eliteArchive.length = this.maxEliteArchiveSize;
     }
+  }
+
+  /**
+   * Export top Darwinian elite brains from this island for cross-island migration
+   */
+  exportElites(count = 3) {
+    const candidates = [];
+
+    // 1. Collect from elite archive
+    for (let i = 0; i < this.eliteArchive.length; i++) {
+      const e = this.eliteArchive[i];
+      candidates.push({
+        fitness: e.fitness,
+        generation: e.generation || 1,
+        brain: e.brain.toJSON(),
+        originIsland: this.islandId,
+        originTick: this.tickCount
+      });
+    }
+
+    // 2. Collect from living agents
+    for (let i = 0; i < this.agents.length; i++) {
+      const a = this.agents[i];
+      if (a.isDead) continue;
+      const fitness = a.age + (a.biomassEaten * 25) + (a.offspringCount * 300) + ((a.rootsHarvested || 0) * 8);
+      candidates.push({
+        fitness,
+        generation: a.generation || 1,
+        brain: a.brain.toJSON(),
+        originIsland: this.islandId,
+        originTick: this.tickCount
+      });
+    }
+
+    // Sort descending by fitness
+    candidates.sort((a, b) => b.fitness - a.fitness);
+
+    // Take top N unique genomes
+    return candidates.slice(0, count);
+  }
+
+  /**
+   * Import foreign elite brains from peer islands and spawn pioneer immigrant agents
+   */
+  importElites(elites, spawnCount = 2) {
+    if (!Array.isArray(elites) || elites.length === 0) return 0;
+
+    let importedCount = 0;
+    for (let i = 0; i < elites.length; i++) {
+      const e = elites[i];
+      if (!e || !e.brain) continue;
+      try {
+        const brain = NeuralNet.fromJSON(e.brain);
+        this.eliteArchive.push({
+          fitness: e.fitness || 100,
+          brain: brain.clone(),
+          generation: e.generation || 1,
+          originIsland: e.originIsland
+        });
+        importedCount++;
+      } catch (err) {
+        console.warn('[Simulation] Failed to import foreign elite brain:', err);
+      }
+    }
+
+    // Maintain bounded elite archive
+    this.eliteArchive.sort((a, b) => b.fitness - a.fitness);
+    if (this.eliteArchive.length > this.maxEliteArchiveSize) {
+      this.eliteArchive.length = this.maxEliteArchiveSize;
+    }
+
+    this.immigrantsReceived += importedCount;
+    this.stats.immigrantsReceived = this.immigrantsReceived;
+
+    // Immediately spawn pioneer immigrant agents into safe terrain
+    const actualSpawn = Math.min(spawnCount, elites.length);
+    for (let i = 0; i < actualSpawn; i++) {
+      if (this.agents.length >= this.maxPopulation) break;
+      const loc = this.findSpawnLocation();
+      if (!loc) break;
+
+      const foreignElite = elites[i % elites.length];
+      const foreignBrain = NeuralNet.fromJSON(foreignElite.brain);
+      // Gentle mutation to adapt to local biome (amplified in radiation lab)
+      const mutMult = this.isRadiationMode ? this.radiationMultiplier : 1.0;
+      const mutRate = Math.min(0.35, 0.05 * mutMult);
+      const mutStrength = this.isRadiationMode ? 0.35 : 0.15;
+      foreignBrain.mutate(mutRate, mutStrength);
+
+      const immigrant = new Agent(this.nextAgentId++, loc.x, loc.y, foreignBrain);
+      immigrant.energy = CONFIG.INITIAL_ENERGY * 1.5; // Foothold energy subsidy
+      immigrant.generation = foreignElite.generation || 1;
+      immigrant.originIsland = foreignElite.originIsland;
+      immigrant.isImmigrant = true;
+
+      this.grid.setOccupant(loc.x, loc.y, immigrant.id);
+      this.agents.push(immigrant);
+    }
+
+    this.updateStats();
+    return importedCount;
   }
 
   /**
@@ -252,7 +379,9 @@ export class Simulation {
       if (this.eliteArchive.length > 0) {
         const elite = this.eliteArchive[Math.floor(Math.random() * this.eliteArchive.length)];
         brain = elite.brain.clone();
-        brain.mutate(CONFIG.MUTATION_RATE_DEFAULT * 1.5, 0.25);
+        const mutMult = this.isRadiationMode ? this.radiationMultiplier : 1.0;
+        const mutStrength = this.isRadiationMode ? 0.45 : 0.25;
+        brain.mutate(CONFIG.MUTATION_RATE_DEFAULT * 1.5 * mutMult, mutStrength);
         gen = elite.generation || 1;
       } else {
         brain = new NeuralNet();
@@ -375,6 +504,10 @@ export class Simulation {
     this.stats.generationAvg = this.agents.length > 0 ? parseFloat((genSum / this.agents.length).toFixed(1)) : 1;
     this.stats.generationCounts = generationCounts;
     this.stats.elitesCount = this.eliteArchive.length;
+    this.stats.islandId = this.islandId;
+    this.stats.immigrantsReceived = this.immigrantsReceived;
+    this.stats.isRadiationMode = this.isRadiationMode;
+    this.stats.radiationMultiplier = this.radiationMultiplier;
   }
 
   /**
@@ -426,9 +559,13 @@ export class Simulation {
       name,
       timestamp: new Date().toISOString(),
       tick: this.tickCount,
+      islandId: this.islandId,
+      immigrantsReceived: this.immigrantsReceived,
       nextAgentId: this.nextAgentId,
       maxPopulation: this.maxPopulation,
       minPopulationFloor: this.minPopulationFloor,
+      isRadiationMode: this.isRadiationMode,
+      radiationMultiplier: this.radiationMultiplier,
       grid: this.grid.toJSON(),
       agents: this.agents.map(a => a.toJSON()),
       eliteArchive: this.eliteArchive.map(e => ({
@@ -451,13 +588,18 @@ export class Simulation {
   static fromJSON(data) {
     const sim = new Simulation({
       width: data.grid.width,
-      height: data.grid.height
+      height: data.grid.height,
+      isRadiationMode: data.isRadiationMode,
+      radiationMultiplier: data.radiationMultiplier
     });
 
     sim.tickCount = data.tick || 0;
+    sim.islandId = data.islandId !== undefined ? data.islandId : 0;
+    sim.immigrantsReceived = data.immigrantsReceived || 0;
     sim.nextAgentId = data.nextAgentId || (data.agents.length + 1);
     sim.maxPopulation = data.maxPopulation || CONFIG.MAX_POPULATION;
     sim.minPopulationFloor = data.minPopulationFloor || CONFIG.MIN_POPULATION_FLOOR;
+    sim.setRadiationMode(data.isRadiationMode, data.radiationMultiplier);
     sim.grid = Grid.fromJSON(data.grid);
     sim.environment = new Environment(sim.grid);
 

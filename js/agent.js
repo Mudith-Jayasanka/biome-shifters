@@ -28,6 +28,8 @@ export class Agent {
     // Biological success telemetry
     this.biomassEaten = 0;
     this.offspringCount = 0;
+    this.trenchesDug = 0;
+    this.rootsHarvested = 0;
 
     // Lineage and visual identification
     this.color = this.generateColor();
@@ -179,8 +181,16 @@ export class Agent {
     this.lastAction = action;
     let success = 1.0;
 
-    // Baseline basal metabolic drain (always applies)
-    this.energy -= CONFIG.BASAL_METABOLIC_DRAIN;
+    // Microclimate thermal relief: moist soils reduce basal metabolic drain and thermal stress
+    const currentMoisture = grid.getMoisture(this.x, this.y);
+    const relief = Math.min(CONFIG.MOISTURE_METABOLIC_RELIEF, currentMoisture * CONFIG.MOISTURE_METABOLIC_RELIEF);
+    const effectiveDrain = CONFIG.BASAL_METABOLIC_DRAIN * (1.0 - relief);
+    this.energy -= effectiveDrain;
+
+    // Environmental exposure: hostile coastal perimeter inflicts harsh metabolic drain
+    if (grid.isCoastal(this.x, this.y)) {
+      this.energy -= CONFIG.COASTAL_EXPOSURE_DRAIN;
+    }
 
     switch (action) {
       case ACTIONS.IDLE: {
@@ -232,7 +242,11 @@ export class Agent {
         const waterDepth = grid.getWater(targetX, targetY);
         const waterPenalty = waterDepth > 0.4 ? waterDepth * 1.2 : 0;
 
-        let moveCost = CONFIG.MOVE_ENERGY_BASE * highwayBonus + waterPenalty;
+        // Familiar territory / scent highway bonus: moving along scented corridors stabilizes navigation
+        const targetScent = grid.getScent(targetX, targetY);
+        const scentBonus = targetScent > 0.2 ? 0.92 : 1.0;
+
+        let moveCost = (CONFIG.MOVE_ENERGY_BASE * highwayBonus + waterPenalty) * scentBonus;
         if (deltaElev > 0) {
           moveCost += deltaElev * 1.5; // Uphill climb cost
         } else {
@@ -291,6 +305,20 @@ export class Agent {
         const elev = grid.getElevation(this.x, this.y);
         if (elev > 0.05) {
           grid.setElevation(this.x, this.y, elev - 0.05);
+          this.trenchesDug++;
+
+          // Subterranean root excavation: virgin fertile loam unearths edible roots/tubers
+          const fertility = grid.getFertility(this.x, this.y);
+          if (fertility > 0.25) {
+            const trample = grid.getTrample(this.x, this.y);
+            // Diminishing returns: deeper trenches or heavily trampled soil have already been excavated
+            const depthPenalty = Math.max(0.1, (elev - 0.05) / 0.8);
+            const rootYield = fertility * CONFIG.ROOT_HARVEST_MAX * Math.max(0.1, 1.0 - trample) * depthPenalty;
+            this.energy = Math.min(CONFIG.MAX_ENERGY, this.energy + rootYield);
+            this.rootsHarvested += rootYield;
+            this.biomassEaten += (rootYield / CONFIG.GRAZE_MAX_INTAKE);
+          }
+
           success = 1.0;
         } else {
           success = 0.0;
@@ -314,7 +342,7 @@ export class Agent {
       }
 
       case ACTIONS.EMIT_SCENT: {
-        this.energy -= 0.15;
+        this.energy -= CONFIG.SCENT_COST;
         grid.addScent(this.x, this.y, CONFIG.SCENT_DEPOSIT);
         success = 1.0;
         break;
@@ -384,7 +412,7 @@ export class Agent {
       const cx = this.x + dir.dx;
       const cy = this.y + dir.dy;
 
-      if (grid.inBounds(cx, cy) && grid.getOccupant(cx, cy) === -1 && grid.getWater(cx, cy) < 0.6) {
+      if (grid.inBounds(cx, cy) && !grid.isCoastal(cx, cy) && grid.getOccupant(cx, cy) === -1 && grid.getWater(cx, cy) < 0.6) {
         // Split energy 50/50
         const childEnergy = this.energy * CONFIG.REPRODUCTION_SPLIT;
         this.energy -= childEnergy;
@@ -419,7 +447,12 @@ export class Agent {
         } else {
           childBrain = this.brain.clone();
         }
-        childBrain.mutate(CONFIG.MUTATION_RATE_DEFAULT, 0.2);
+
+        const isRad = Boolean(simulation && simulation.isRadiationMode);
+        const radMult = isRad ? (simulation.radiationMultiplier || 4.0) : 1.0;
+        const mutRate = CONFIG.MUTATION_RATE_DEFAULT * radMult;
+        const mutStrength = isRad ? 0.45 : 0.2;
+        childBrain.mutate(mutRate, mutStrength);
 
         const child = new Agent(nextAgentId, cx, cy, childBrain);
         child.energy = childEnergy;
@@ -463,6 +496,8 @@ export class Agent {
       color: this.color,
       biomassEaten: this.biomassEaten,
       offspringCount: this.offspringCount,
+      trenchesDug: this.trenchesDug,
+      rootsHarvested: this.rootsHarvested,
       brain: this.brain.toJSON()
     };
   }
@@ -476,6 +511,8 @@ export class Agent {
     agent.species = json.species;
     if (json.biomassEaten !== undefined) agent.biomassEaten = json.biomassEaten;
     if (json.offspringCount !== undefined) agent.offspringCount = json.offspringCount;
+    if (json.trenchesDug !== undefined) agent.trenchesDug = json.trenchesDug;
+    if (json.rootsHarvested !== undefined) agent.rootsHarvested = json.rootsHarvested;
     if (json.color) agent.color = json.color;
     return agent;
   }
