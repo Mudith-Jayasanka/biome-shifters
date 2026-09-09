@@ -193,6 +193,23 @@ export class Agent {
       this.energy -= CONFIG.COASTAL_EXPOSURE_DRAIN;
     }
 
+    // Aquatic submersion exposure: standing in deep standing water causes hypothermia & swimming fatigue
+    const currentWater = grid.getWater(this.x, this.y);
+    if (currentWater > CONFIG.AQUATIC_SAFE_DEPTH) {
+      const submersion = currentWater - CONFIG.AQUATIC_SAFE_DEPTH;
+      this.energy -= submersion * CONFIG.AQUATIC_EXPOSURE_DRAIN;
+    }
+
+    // Stationary soil trampling: lingering or performing in-place actions compacts the earth
+    if (
+      action !== ACTIONS.MOVE_NORTH &&
+      action !== ACTIONS.MOVE_SOUTH &&
+      action !== ACTIONS.MOVE_EAST &&
+      action !== ACTIONS.MOVE_WEST
+    ) {
+      grid.addTrample(this.x, this.y, CONFIG.STATIONARY_TRAMPLE_DEPOSIT);
+    }
+
     switch (action) {
       case ACTIONS.IDLE: {
         // Rest: minimal energy expenditure
@@ -292,6 +309,13 @@ export class Agent {
           grid.setBiomass(this.x, this.y, curBiomass - biteSize);
           this.energy = Math.min(CONFIG.MAX_ENERGY, this.energy + energyGained);
           this.biomassEaten += biteSize;
+
+          // Trace soil fertility depletion: repeated overgrazing exhausts soil nutrients
+          const curFert = grid.getFertility(this.x, this.y);
+          if (curFert > 0.05) {
+            grid.setFertility(this.x, this.y, Math.max(0.05, curFert - CONFIG.FERTILITY_GRAZE_DEPLETION));
+          }
+
           success = 1.0;
         } else {
           // Attempted to graze on barren land

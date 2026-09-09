@@ -69,6 +69,12 @@ class App {
     this.activeSnooperIsland = null;
     this.snooperPollInterval = null;
 
+    // Resilience & Version Synchronization
+    this.countdownTimer = null;
+    this.isCountdownActive = false;
+    this.isVersionDismissed = false;
+    this.isCountdownPostponed = false;
+
     this.init();
   }
 
@@ -120,6 +126,18 @@ class App {
       this.updateIslandBarUI();
     });
 
+    this.clusterClient.on('version_mismatch', (payload) => {
+      this.showHostVersionBanner(payload);
+    });
+
+    this.clusterClient.on('auto_disconnect_pause', (info) => {
+      this.handleAutoDisconnectPause(info);
+    });
+
+    this.clusterClient.on('reconnected_from_pause', () => {
+      this.handleReconnectedFromPause();
+    });
+
     // Center initial camera
     this.renderer.initCameraCentered();
 
@@ -142,6 +160,37 @@ class App {
     this.clusterClient.on('visibility_change', (isHidden) => {
       this.setVisualsHidden(isHidden);
     });
+    this.clusterClient.on('version_mismatch', (payload) => {
+      this.showContributorCountdown(payload);
+    });
+    this.clusterClient.on('auto_disconnect_pause', (info) => {
+      this.handleAutoDisconnectPause(info);
+    });
+    this.clusterClient.on('reconnected_from_pause', () => {
+      this.handleReconnectedFromPause();
+    });
+
+    // Check if reloaded via cache-busting version parameter and restore saved session
+    const urlParams = new URLSearchParams(window.location.search);
+    const hasVersionParam = urlParams.has('v');
+    const savedSessionRaw = localStorage.getItem('biome_contributor_session');
+    if (hasVersionParam && savedSessionRaw) {
+      try {
+        const savedSession = JSON.parse(savedSessionRaw);
+        if (savedSession && savedSession.name && savedSession.cores) {
+          console.log('[Cluster] Restoring contributor session after version reload:', savedSession);
+          this.selectedCores = savedSession.cores;
+          this.executeContributorJoin(savedSession.name, savedSession.cores, savedSession.perfMode)
+            .catch(err => {
+              console.warn('[Cluster] Auto-join failed, falling back to join modal:', err);
+              this.setupJoinModal();
+            });
+          return;
+        }
+      } catch (err) {
+        console.warn('[Cluster] Failed parsing saved contributor session:', err);
+      }
+    }
 
     this.setupJoinModal();
   }
@@ -349,66 +398,7 @@ class App {
         btnSubmit.textContent = '⏳ Spawning dedicated workers...';
 
         try {
-          const reg = await this.clusterClient.join(nodeName, this.selectedCores);
-          if (modal) modal.classList.add('hidden');
-
-          // Instantiate IslandManager with allocated island IDs
-          const initialPerfMode = reg.perfMode || this.clusterClient.perfMode || 'standard';
-          this.islandManager = new IslandManager({
-            islandIds: reg.islandIds,
-            baseSeed: reg.baseSeed,
-            migrationInterval: 800,
-            perfMode: initialPerfMode
-          });
-          this.islandManager.setClusterClient(this.clusterClient);
-          this.islandManager.setPerfMode(initialPerfMode);
-          this.islandManager.onMigrationEvent = (event) => {
-            this.showMigrationToast(event);
-          };
-
-          // Apply initial pause & speed from cluster state
-          if (reg.globalState) {
-            this.isPaused = Boolean(reg.globalState.isPaused);
-            this.speed = reg.globalState.speed || 1;
-            this.isTurbo = Boolean(reg.globalState.isTurbo);
-            this.islandManager.setPause(this.isPaused);
-            this.islandManager.setSpeed(this.speed, this.isTurbo);
-          }
-
-          this.updateHudRoleBadge(`💻 Contributor: ${reg.name} (${reg.islandIds.length} Cores) • 🟢 Synced`);
-          this.buildIslandBarButtons();
-          this.setupIslandControls();
-
-          // Listen for cluster sync events (if not already attached)
-          if (!this.hasClusterSyncListeners) {
-            this.hasClusterSyncListeners = true;
-            this.clusterClient.on('pause_change', (isPaused) => {
-              this.isPaused = isPaused;
-              const pauseIcon = document.getElementById('pause-icon');
-              const pauseText = document.getElementById('pause-text');
-              if (pauseIcon) pauseIcon.textContent = this.isPaused ? '▶' : '⏸';
-              if (pauseText) pauseText.textContent = this.isPaused ? 'Resume' : 'Pause';
-            });
-
-            this.clusterClient.on('speed_change', ({ speed, isTurbo }) => {
-              this.speed = speed;
-              this.isTurbo = isTurbo;
-            });
-
-            this.clusterClient.on('island_radiation_change', () => {
-              this.updateMultiIslandCard();
-              this.updateIslandBarUI();
-            });
-          }
-
-          // Center camera, start heartbeat and render loop
-          this.renderer.initCameraCentered();
-          this.clusterClient.startHeartbeat(this.islandManager);
-          if (!this.hasRenderLoopStarted) {
-            this.hasRenderLoopStarted = true;
-            requestAnimationFrame((t) => this.renderLoop(t));
-          }
-
+          await this.executeContributorJoin(nodeName, this.selectedCores);
         } catch (err) {
           alert(`Failed to join cluster: ${err.message}`);
           btnSubmit.disabled = false;
@@ -417,6 +407,247 @@ class App {
       };
     }
   }
+
+  async executeContributorJoin(nodeName, requestedCores = 2, preferredPerfMode = null) {
+    const modal = document.getElementById('cluster-join-modal');
+    try {
+      const reg = await this.clusterClient.join(nodeName, requestedCores);
+      if (modal) modal.classList.add('hidden');
+
+      // Persist contributor session for automatic reload recovery
+      const initialPerfMode = preferredPerfMode || reg.perfMode || this.clusterClient.perfMode || 'standard';
+      try {
+        localStorage.setItem('biome_contributor_session', JSON.stringify({
+          name: reg.name,
+          cores: requestedCores,
+          perfMode: initialPerfMode
+        }));
+      } catch (e) {
+        console.warn('[Cluster] Failed to persist contributor session:', e);
+      }
+
+      // Instantiate IslandManager with allocated island IDs
+      this.islandManager = new IslandManager({
+        islandIds: reg.islandIds,
+        baseSeed: reg.baseSeed,
+        migrationInterval: 800,
+        perfMode: initialPerfMode
+      });
+      this.islandManager.setClusterClient(this.clusterClient);
+      this.islandManager.setPerfMode(initialPerfMode);
+      this.islandManager.onMigrationEvent = (event) => {
+        this.showMigrationToast(event);
+      };
+
+      // Apply initial pause & speed from cluster state
+      if (reg.globalState) {
+        this.isPaused = Boolean(reg.globalState.isPaused);
+        this.speed = reg.globalState.speed || 1;
+        this.isTurbo = Boolean(reg.globalState.isTurbo);
+        this.islandManager.setPause(this.isPaused);
+        this.islandManager.setSpeed(this.speed, this.isTurbo);
+      }
+
+      this.updateHudRoleBadge(`💻 Contributor: ${reg.name} (${reg.islandIds.length} Cores) • 🟢 Synced`);
+      this.buildIslandBarButtons();
+      this.setupIslandControls();
+
+      // Listen for cluster sync events (if not already attached)
+      if (!this.hasClusterSyncListeners) {
+        this.hasClusterSyncListeners = true;
+        this.clusterClient.on('pause_change', (isPaused) => {
+          this.isPaused = isPaused;
+          const pauseIcon = document.getElementById('pause-icon');
+          const pauseText = document.getElementById('pause-text');
+          if (pauseIcon) pauseIcon.textContent = this.isPaused ? '▶' : '⏸';
+          if (pauseText) pauseText.textContent = this.isPaused ? 'Resume' : 'Pause';
+        });
+
+        this.clusterClient.on('speed_change', ({ speed, isTurbo }) => {
+          this.speed = speed;
+          this.isTurbo = isTurbo;
+        });
+
+        this.clusterClient.on('island_radiation_change', () => {
+          this.updateMultiIslandCard();
+          this.updateIslandBarUI();
+        });
+      }
+
+      // Center camera, start heartbeat and render loop
+      this.renderer.initCameraCentered();
+      this.clusterClient.startHeartbeat(this.islandManager);
+      if (!this.hasRenderLoopStarted) {
+        this.hasRenderLoopStarted = true;
+        requestAnimationFrame((t) => this.renderLoop(t));
+      }
+
+      return reg;
+    } catch (err) {
+      console.error('[Cluster] Failed to join cluster:', err);
+      if (modal) modal.classList.remove('hidden');
+      throw err;
+    }
+  }
+
+  showHostVersionBanner(payload) {
+    if (this.isVersionDismissed) return;
+    const banner = document.getElementById('hud-version-banner');
+    const textEl = document.getElementById('version-banner-text');
+    const btnQuickSave = document.getElementById('btn-version-quick-save');
+    const btnReload = document.getElementById('btn-version-reload');
+    const btnDismiss = document.getElementById('btn-version-dismiss');
+    if (!banner) return;
+
+    const versionStr = payload.version ? `v${payload.version}` : `Build #${payload.build}`;
+    const buildStr = payload.build ? ` (Build #${payload.build})` : '';
+    if (textEl) {
+      textEl.textContent = `📢 New Build ${versionStr}${buildStr} available! Please save your simulation before reloading.`;
+    }
+
+    banner.classList.remove('hidden');
+
+    if (btnQuickSave) {
+      btnQuickSave.onclick = async () => {
+        btnQuickSave.disabled = true;
+        btnQuickSave.textContent = '⏳ Saving...';
+        const ok = await this.quickSaveSimulation('pre_update');
+        if (ok) {
+          btnQuickSave.textContent = '✓ Saved!';
+          btnQuickSave.classList.remove('btn-primary');
+          btnQuickSave.classList.add('btn-secondary');
+        } else {
+          btnQuickSave.disabled = false;
+          btnQuickSave.textContent = '💾 Quick Save (Retry)';
+        }
+      };
+    }
+
+    if (btnReload) {
+      btnReload.onclick = () => {
+        window.location.reload();
+      };
+    }
+
+    if (btnDismiss) {
+      btnDismiss.onclick = () => {
+        this.isVersionDismissed = true;
+        banner.classList.add('hidden');
+      };
+    }
+  }
+
+  async quickSaveSimulation(prefix = 'pre_update') {
+    if (!this.islandManager) return false;
+    const curTick = this.islandManager.telemetry[this.islandManager.activeIslandIndex]?.tick || 0;
+    const name = `${prefix}_tick_${curTick}_${Date.now()}`;
+    try {
+      const multiSave = await this.islandManager.serializeAll(name);
+      await StorageManager.saveSimulation(multiSave, name, false);
+      return true;
+    } catch (err) {
+      console.error('[QuickSave] Error:', err);
+      return false;
+    }
+  }
+
+  showContributorCountdown(payload) {
+    if (this.isCountdownActive || this.isCountdownPostponed) return;
+    this.isCountdownActive = true;
+
+    const overlay = document.getElementById('version-countdown-overlay');
+    const titleEl = document.getElementById('countdown-title');
+    const secondsEl = document.getElementById('countdown-seconds');
+    const fillEl = document.getElementById('countdown-progress-fill');
+    const btnReloadNow = document.getElementById('btn-countdown-reload-now');
+    const btnPostpone = document.getElementById('btn-countdown-postpone');
+
+    if (!overlay) return;
+
+    const versionStr = payload.version ? `v${payload.version}` : `Build #${payload.build}`;
+    if (titleEl) titleEl.textContent = `Simulation Core Update: ${versionStr}`;
+
+    overlay.classList.remove('hidden');
+
+    let secondsRemaining = 5;
+    if (secondsEl) secondsEl.textContent = String(secondsRemaining);
+    if (fillEl) fillEl.style.width = '100%';
+
+    const executeReload = () => {
+      if (this.countdownTimer) clearInterval(this.countdownTimer);
+      const targetVersion = payload.version || payload.build || Date.now();
+      window.location.replace(window.location.pathname + '?v=' + encodeURIComponent(targetVersion));
+    };
+
+    if (this.countdownTimer) clearInterval(this.countdownTimer);
+    this.countdownTimer = setInterval(() => {
+      secondsRemaining--;
+      if (secondsEl) secondsEl.textContent = String(Math.max(0, secondsRemaining));
+      if (fillEl) fillEl.style.width = `${(secondsRemaining / 5) * 100}%`;
+
+      if (secondsRemaining <= 0) {
+        clearInterval(this.countdownTimer);
+        this.countdownTimer = null;
+        executeReload();
+      }
+    }, 1000);
+
+    if (btnReloadNow) {
+      btnReloadNow.onclick = () => {
+        executeReload();
+      };
+    }
+
+    if (btnPostpone) {
+      btnPostpone.onclick = () => {
+        if (this.countdownTimer) {
+          clearInterval(this.countdownTimer);
+          this.countdownTimer = null;
+        }
+        overlay.classList.add('hidden');
+        this.isCountdownActive = false;
+        this.isCountdownPostponed = true;
+
+        // Postpone for 60 seconds
+        setTimeout(() => {
+          this.isCountdownPostponed = false;
+        }, 60000);
+      };
+    }
+  }
+
+  handleAutoDisconnectPause(info) {
+    console.warn('[Cluster] Auto-disconnect: Heartbeat offline > 3m. Pausing workers.');
+    if (this.islandManager) {
+      this.islandManager.setPause(true);
+    }
+    this.isPaused = true;
+    const pauseIcon = document.getElementById('pause-icon');
+    const pauseText = document.getElementById('pause-text');
+    if (pauseIcon) pauseIcon.textContent = '▶';
+    if (pauseText) pauseText.textContent = 'Resume';
+    this.updateHudRoleBadge('🔴 Server Unreachable (3m+). Local simulation paused. Retrying every 3s...');
+  }
+
+  handleReconnectedFromPause() {
+    console.log('[Cluster] Reconnected to coordinator from disconnect pause.');
+    if (this.islandManager) {
+      this.islandManager.setPause(false);
+    }
+    this.isPaused = false;
+    const pauseIcon = document.getElementById('pause-icon');
+    const pauseText = document.getElementById('pause-text');
+    if (pauseIcon) pauseIcon.textContent = '⏸';
+    if (pauseText) pauseText.textContent = 'Pause';
+
+    if (this.isHost) {
+      this.updateHudRoleBadge('👑 Host Admin • 8 Cores');
+    } else {
+      const cores = this.clusterClient.islandIds ? this.clusterClient.islandIds.length : this.selectedCores;
+      this.updateHudRoleBadge(`💻 Contributor: ${this.clusterClient.name} (${cores} Cores) • 🟢 Synced`);
+    }
+  }
+
 
   handleClusterKicked(reason = 'Removed by Host Admin') {
     console.warn('[Cluster] Disconnected by Host:', reason);

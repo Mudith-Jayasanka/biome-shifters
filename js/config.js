@@ -37,7 +37,9 @@ export const CONFIG = {
 
   // Soil Trampling & Trails
   TRAMPLE_DEPOSIT: 0.25,     // Compaction added per agent step
+  STATIONARY_TRAMPLE_DEPOSIT: 0.04, // Soil compaction accumulated per tick by lingering on a tile
   TRAMPLE_DECAY: 0.0015,     // Rate at which nature reclaims trampled trails
+  FERTILITY_GRAZE_DEPLETION: 0.005, // Trace fertility loss per grazing bite
 
   // Pheromones / Scent
   SCENT_DEPOSIT: 1.0,
@@ -52,6 +54,8 @@ export const CONFIG = {
   REPRODUCTION_SPLIT: 0.5,   // Parent gives 50% energy to child
   BASAL_METABOLIC_DRAIN: 0.20,
   MOISTURE_METABOLIC_RELIEF: 0.40, // Up to 40% metabolic drain relief in moist soils/trenches
+  AQUATIC_SAFE_DEPTH: 0.15,        // Maximum water depth before terrestrial submersion fatigue begins
+  AQUATIC_EXPOSURE_DRAIN: 0.35,    // Metabolic drain per tick for standing in deep water
   MOVE_ENERGY_BASE: 0.28,
   TERRAFORM_ENERGY_COST: 2.5,      // Reduced upfront excavation cost
   ROOT_HARVEST_MAX: 4.5,           // Max energy recovered from subterranean roots/tubers on rich virgin soil (Net +2.0 ROI)
@@ -68,7 +72,7 @@ export const CONFIG = {
   SEED_SOW_COST: 2.5,                // Caloric investment to deposit viable seeds
   SEED_GERM_MIN_MOISTURE: 0.30,      // Minimum soil moisture required for germination
   SEED_GERM_MAX_TRAMPLE: 0.45,       // High soil compaction crushes delicate seeds
-  SEED_GERM_BIOMASS: 0.20,           // Initial sapling biomass created on successful germination
+  SEED_GERM_BIOMASS: 0.04,           // Initial sprout biomass (requires logistic growth to become profitable)
 
   // Population Scaling & Floor Limits
   INITIAL_POPULATION: 200,

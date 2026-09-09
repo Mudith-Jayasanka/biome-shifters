@@ -1,7 +1,7 @@
 # Task 54: Client Auto-Disconnect, Auto-Reconnect & Version Mismatch Synchronization
 
 ## Status
-`TODO`
+`DONE`
 
 ---
 
@@ -11,7 +11,7 @@ Implement client-side resilience features:
 2. **Auto Connect & Resume (3s Retry)**: While disconnected, poll the server every 3 seconds. Once reconnected, auto-heal session with the coordinator and resume simulations with the user's previously chosen CPU cores.
 3. **Version Mismatch Handling**:
    - **Host Admin**: Display a persistent HUD notification banner informing the user of the new build so they can save their simulation before reloading.
-   - **Contributor Nodes**: Display a dramatic countdown overlay (e.g. 5 seconds) before automatically executing a cache-busting hard reload (`?v=<hash>`), immediately restoring saved cores from `localStorage`, and continuing simulation.
+   - **Contributor Nodes**: Display a dramatic countdown overlay (e.g. 5 seconds) before automatically executing a cache-busting hard reload (`?v=<version>`), immediately restoring saved cores from `localStorage`, and continuing simulation.
 
 ---
 
@@ -107,9 +107,10 @@ When contributor machines run unattended simulations over the LAN:
 ---
 
 ## Acceptance Criteria
-- [ ] Simulation workers automatically pause if server heartbeat fails continuously for 3 minutes.
-- [ ] Simulation workers automatically unpause and resume simulating when server reconnects.
-- [ ] Host receives persistent HUD notification on version mismatch allowing safe simulation saving before reloading.
-- [ ] Contributor receives dramatic countdown overlay and cache-busting automatic reload on version mismatch.
-- [ ] Contributor auto-joins with previously selected cores after cache-busting reload.
+- [x] Simulation workers automatically pause if server heartbeat fails continuously for 3 minutes.
+- [x] Simulation workers automatically unpause and resume simulating when server reconnects.
+- [x] Host receives persistent HUD notification on version mismatch allowing safe simulation saving before reloading.
+- [x] Contributor receives dramatic countdown overlay and cache-busting automatic reload on version mismatch.
+- [x] Contributor auto-joins with previously selected cores after cache-busting reload.
+
 

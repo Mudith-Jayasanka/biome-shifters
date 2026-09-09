@@ -1,6 +1,5 @@
 # Task 41: Remote Miniature Island Cam & Viewport Snooper (Demand-Driven Architecture)
 
-## Status: `TODO`
 ## Status: `DONE`
 
 ## Goal

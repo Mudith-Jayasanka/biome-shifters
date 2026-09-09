@@ -247,7 +247,7 @@ export class Simulation {
     if (agent.age < 60 && agent.biomassEaten < 0.5 && (agent.rootsHarvested || 0) < 2.0 && (agent.seedsSown || 0) < 1) return;
 
     // True biological Darwinian fitness: lifespan + biomass consumed + offspring raised + subterranean roots harvested + agricultural seeds sown
-    const fitness = agent.age + (agent.biomassEaten * 25) + (agent.offspringCount * 300) + ((agent.rootsHarvested || 0) * 8) + ((agent.seedsSown || 0) * 10);
+    const fitness = agent.age + (agent.biomassEaten * 25) + (agent.offspringCount * 300) + ((agent.rootsHarvested || 0) * 8) + ((agent.seedsSown || 0) * 1.5);
     const brainCopy = agent.brain.clone();
 
     this.eliteArchive.push({
@@ -284,7 +284,7 @@ export class Simulation {
     for (let i = 0; i < this.agents.length; i++) {
       const a = this.agents[i];
       if (a.isDead) continue;
-      const fitness = a.age + (a.biomassEaten * 25) + (a.offspringCount * 300) + ((a.rootsHarvested || 0) * 8) + ((a.seedsSown || 0) * 10);
+      const fitness = a.age + (a.biomassEaten * 25) + (a.offspringCount * 300) + ((a.rootsHarvested || 0) * 8) + ((a.seedsSown || 0) * 1.5);
       candidates.push({
         fitness,
         generation: a.generation || 1,

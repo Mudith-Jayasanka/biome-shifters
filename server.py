@@ -258,6 +258,8 @@ class ClusterManager:
 
                 allocated_islands = island_ids if isinstance(island_ids, list) else []
                 node_cores = int(cores) if cores else (len(allocated_islands) or 2)
+                if allocated_islands:
+                    cls.next_island_id = max(cls.next_island_id, max(allocated_islands) + 1)
                 cls.nodes[node_id] = {
                     'nodeId': node_id,
                     'name': clean_name,

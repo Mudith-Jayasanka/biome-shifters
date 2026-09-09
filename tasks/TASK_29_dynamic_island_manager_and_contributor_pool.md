@@ -1,6 +1,5 @@
 # Task 29: Dynamic IslandManager & Contributor Worker Pool
 
-## Status: `TODO`
 ## Status: `DONE`
 
 ## Goal

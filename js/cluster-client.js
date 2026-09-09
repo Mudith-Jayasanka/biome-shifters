@@ -23,7 +23,15 @@ export class ClusterClient {
     this.isHidden = false;
     this.perfMode = options.perfMode || 'turbo';
     this.isSnapshotDispatching = false;
+
+    // Resilience & Version synchronization tracking
+    this.lastHeartbeatSuccessTime = Date.now();
+    this.isAutoPausedDueToDisconnect = false;
+    this.clientBuildVersion = null;
+    this.retryIntervalMs = 3000;
+    this.autoDisconnectThresholdMs = 180000; // 3 minutes (180s)
   }
+
 
   /**
    * Register event listener
@@ -71,6 +79,9 @@ export class ClusterClient {
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const data = await resp.json();
       this.isHost = Boolean(data.isHost);
+      if (data.buildVersion && data.buildVersion.version && !this.clientBuildVersion) {
+        this.clientBuildVersion = data.buildVersion.version;
+      }
       return data;
     } catch (err) {
       console.warn('[ClusterClient] Failed to fetch cluster status:', err);
@@ -100,6 +111,9 @@ export class ClusterClient {
       this.islandIds = Array.isArray(data.islandIds) ? data.islandIds : [];
       this.lastGlobalState = data.globalState || null;
       if (data.perfMode) this.perfMode = data.perfMode;
+      if (data.buildVersion && data.buildVersion.version) {
+        this.clientBuildVersion = data.buildVersion.version;
+      }
 
       this.emit('joined', data);
       return data;
@@ -173,6 +187,22 @@ export class ClusterClient {
 
       if (resp.ok) {
         const data = await resp.json();
+        this.lastHeartbeatSuccessTime = Date.now();
+
+        // Check version mismatch
+        if (data.buildVersion && data.buildVersion.version) {
+          if (!this.clientBuildVersion) {
+            this.clientBuildVersion = data.buildVersion.version;
+          } else if (this.clientBuildVersion !== data.buildVersion.version) {
+            this.emit('version_mismatch', data.buildVersion);
+          }
+        }
+
+        // Check auto-reconnect from disconnect pause
+        if (this.isAutoPausedDueToDisconnect) {
+          this.isAutoPausedDueToDisconnect = false;
+          this.emit('reconnected_from_pause');
+        }
 
         // Check if node has been kicked/removed by Host
         if (data.kicked || data.status === 'kicked') {
@@ -209,6 +239,13 @@ export class ClusterClient {
         this.emit('heartbeat', { globalState, tps, population, nodeState: data.nodeState });
       }
     } catch (err) {
+      // Check continuous offline threshold (3 minutes continuous heartbeat failure)
+      const offlineDuration = Date.now() - this.lastHeartbeatSuccessTime;
+      if (offlineDuration >= this.autoDisconnectThresholdMs && !this.isAutoPausedDueToDisconnect) {
+        this.isAutoPausedDueToDisconnect = true;
+        this.emit('auto_disconnect_pause', { offlineDuration });
+      }
+
       // Non-fatal: Network packet dropped or temporary connection blip
       this.emit('heartbeat_error', err);
     } finally {
