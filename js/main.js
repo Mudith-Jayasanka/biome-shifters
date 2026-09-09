@@ -152,6 +152,9 @@ class App {
     document.body.classList.add('mode-contributor');
     this.updateHudRoleBadge('💻 Contributor (Connecting...)');
 
+    const btnToggleGpu = document.getElementById('btnToggleGpu');
+    if (btnToggleGpu) btnToggleGpu.style.display = 'none';
+
     // Wire up contributor-specific cluster client events
     this.clusterClient.on('kicked', (reason) => this.handleClusterKicked(reason));
     this.clusterClient.on('name_change', (newName) => {
@@ -769,6 +772,21 @@ class App {
       this.lastTurboRenderTime = 0;
       this.renderer.setLayer(e.target.value);
     });
+
+    // WebGPU Acceleration Toggle (Host admin only)
+    const btnToggleGpu = document.getElementById('btnToggleGpu');
+    if (btnToggleGpu) {
+      if (!this.isHost) {
+        btnToggleGpu.style.display = 'none';
+      }
+      btnToggleGpu.addEventListener('click', () => {
+        if (!this.islandManager) return;
+        const newState = !this.islandManager.isGpuGlobal;
+        this.islandManager.setAllIslandsGpu(newState);
+        btnToggleGpu.textContent = newState ? '⚡ GPU: ON' : '⚡ GPU: OFF';
+        btnToggleGpu.classList.toggle('gpu-active', newState);
+      });
+    }
 
     // Reset All Islands button (Admin only)
     const btnReset = document.getElementById('btn-reset');

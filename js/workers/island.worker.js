@@ -82,7 +82,8 @@ function measureTpsAndSendTelemetry() {
         tps: currentTps,
         immigrantsReceived: simulation.immigrantsReceived,
         isRadiationMode: Boolean(simulation.isRadiationMode),
-        radiationMultiplier: simulation.radiationMultiplier || 4.0
+        radiationMultiplier: simulation.radiationMultiplier || 4.0,
+        isGpuActive: Boolean(simulation.useGpu)
       });
     }
   }
@@ -347,6 +348,31 @@ self.onmessage = function (e) {
       break;
     }
 
+    case 'SET_GPU_MODE': {
+      const enable = Boolean(msg.enable);
+      if (!simulation) break;
+
+      if (enable) {
+        simulation.enableGpu().then(ok => {
+          self.postMessage({
+            type: 'GPU_MODE_CHANGED',
+            islandId,
+            active: ok,
+            requested: true
+          });
+        });
+      } else {
+        simulation.disableGpu();
+        self.postMessage({
+          type: 'GPU_MODE_CHANGED',
+          islandId,
+          active: false,
+          requested: false
+        });
+      }
+      break;
+    }
+
     case 'SET_RADIATION': {
       if (simulation) {
         simulation.setRadiationMode(Boolean(msg.enabled), msg.multiplier || 4.0);
@@ -454,6 +480,7 @@ self.onmessage = function (e) {
         requestId: msg.requestId,
         isRadiationMode: Boolean(simulation.isRadiationMode),
         radiationMultiplier: simulation.radiationMultiplier || 4.0,
+        isGpuActive: Boolean(simulation.useGpu),
         grid: gridData,
         agents: packAgents(simulation.agents),
         stats: { ...simulation.stats },

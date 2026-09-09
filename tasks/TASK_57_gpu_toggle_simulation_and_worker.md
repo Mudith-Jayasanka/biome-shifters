@@ -1,6 +1,6 @@
 # TASK_57 — GPU/CPU Toggle in Island Worker & Simulation Core
 
-**Status**: `TODO`
+**Status**: `DONE`
 
 ---
 
@@ -182,11 +182,11 @@ Add `isGpuActive: simulation ? simulation.useGpu : false` to the existing `TELEM
 
 ## Acceptance Criteria
 
-- [ ] `Simulation.enableGpu()` and `Simulation.disableGpu()` exist and work.
-- [ ] `Simulation.tick()` routes to `gpuEnvironment.tick()` when `useGpu === true`.
-- [ ] The CPU path (`environment.tick()`) is called when `useGpu === false` and works identically to the pre-task behavior.
-- [ ] The island worker handles `SET_GPU_MODE` and responds with `GPU_MODE_CHANGED`.
-- [ ] TELEMETRY messages include `isGpuActive` boolean.
-- [ ] `fromJSON()` always initializes with `useGpu = false` (no GPU auto-start on save load).
-- [ ] No console errors when GPU is unavailable — graceful fallback only.
+- [x] `Simulation.enableGpu()` and `Simulation.disableGpu()` exist and work.
+- [x] `Simulation.tick()` routes to `gpuEnvironment.tick()` when `useGpu === true`.
+- [x] The CPU path (`environment.tick()`) is called when `useGpu === false` and works identically to the pre-task behavior.
+- [x] The island worker handles `SET_GPU_MODE` and responds with `GPU_MODE_CHANGED`.
+- [x] TELEMETRY messages include `isGpuActive` boolean.
+- [x] `fromJSON()` always initializes with `useGpu = false` (no GPU auto-start on save load).
+- [x] No console errors when GPU is unavailable — graceful fallback only.
 

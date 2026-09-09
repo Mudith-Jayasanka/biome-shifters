@@ -206,8 +206,8 @@ TASK_59 (GPU Cluster Propagation & Admin Control for Contributor Nodes)
 | **54** | `TASK_54_auto_disconnect_reconnect_and_version_sync.md` | `js/cluster-client.js`, `js/main.js`, `style.css`, `index.html`, `server.py` | `DONE` | Auto-disconnect 3m pause, 3s auto-reconnect, Host persistent version banner, and Contributor dramatic countdown reload. |
 | **55** | `TASK_55_break_lake_camping_local_optimum.md` | `js/config.js`, `js/agent.js`, `js/simulation.js` | `DONE` | Seed maturation delay, aquatic submersion fatigue, stationary soil compaction, and fallow grazing cycles. |
 | **56** | `TASK_56_webgpu_environment_engine.md` | `js/gpu-environment.js` [NEW], `js/wgsl/*.wgsl` [NEW] | `DONE` | WebGPU compute shader engine replicating all 8 CA passes from `environment.js`. GPU-only module, no UI wiring yet. |
-| **57** | `TASK_57_gpu_toggle_simulation_and_worker.md` | `js/simulation.js`, `js/workers/island.worker.js` | `TODO` | Wire `GpuEnvironment` into `Simulation.tick()` with runtime GPU/CPU toggle via `enableGpu()` / `disableGpu()`. Worker handles `SET_GPU_MODE` message. |
-| **58** | `TASK_58_gpu_toggle_island_manager_and_host_ui.md` | `js/island-manager.js`, `js/main.js`, `index.html`, `style.css` | `TODO` | `IslandManager.setAllIslandsGpu()` and a ⚡ GPU toggle button in the Host HUD (hidden from contributors). |
+| **57** | `TASK_57_gpu_toggle_simulation_and_worker.md` | `js/simulation.js`, `js/workers/island.worker.js` | `DONE` | Wire `GpuEnvironment` into `Simulation.tick()` with runtime GPU/CPU toggle via `enableGpu()` / `disableGpu()`. Worker handles `SET_GPU_MODE` message. |
+| **58** | `TASK_58_gpu_toggle_island_manager_and_host_ui.md` | `js/island-manager.js`, `js/main.js`, `index.html`, `style.css` | `DONE` | `IslandManager.setAllIslandsGpu()` and a ⚡ GPU toggle button in the Host HUD (hidden from contributors). |
 | **59** | `TASK_59_gpu_cluster_propagation_and_admin_control.md` | `server.py`, `js/cluster-client.js`, `js/main.js`, `index.html`, `style.css` | `TODO` | Server `gpuEnabled` global state flag, `POST /api/cluster/gpu` endpoint, cluster heartbeat sync, and per-node GPU button in Cluster Nodes dashboard. |
 
 

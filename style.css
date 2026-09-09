@@ -1215,6 +1215,35 @@ html, body {
   color: var(--accent-green);
 }
 
+/* WebGPU Acceleration Toggle Button */
+.gpu-btn {
+  background: #1a3a1a;
+  color: #4ade80;
+  border: 1px solid #166534;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.gpu-btn:hover {
+  background: #234e23;
+  border-color: #22c55e;
+  color: #86efac;
+}
+
+.gpu-btn.gpu-active {
+  background: #064e3b;
+  color: #6ee7b7;
+  border-color: #34d399;
+  box-shadow: 0 0 8px rgba(52, 211, 153, 0.4);
+}
+
+.gpu-btn.gpu-active:hover {
+  background: #047857;
+  border-color: #6ee7b7;
+  color: #a7f3d0;
+}
+
 /* Modal Auto-Save Configuration Bar */
 .modal-autosave-bar {
   display: flex;
@@ -1634,6 +1663,7 @@ body.mode-contributor #btn-pause,
 body.mode-contributor .speed-group,
 body.mode-contributor .quick-spawn-group,
 body.mode-contributor #btn-cluster-hud,
+body.mode-contributor #btnToggleGpu,
 body.mode-contributor #btn-save,
 body.mode-contributor #btn-load-list,
 body.mode-contributor #btn-autosave-hud,

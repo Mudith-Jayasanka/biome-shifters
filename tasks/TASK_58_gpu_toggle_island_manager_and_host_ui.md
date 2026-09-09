@@ -1,6 +1,7 @@
 # TASK_58 — GPU Toggle: IslandManager API & Host-Local Control
 
 **Status**: `TODO`
+**Status**: `DONE`
 
 ---
 
@@ -171,4 +172,11 @@ if (btnToggleGpu) btnToggleGpu.style.display = 'none';
 - [ ] Visual style (green glow on active) applied correctly.
 - [ ] Telemetry cache stores `isGpuActive` per island.
 - [ ] No UI regressions: Radiation Lab, Turbo Mode, Perf Limiter buttons unaffected.
+- [x] `IslandManager.setIslandGpu()` and `setAllIslandsGpu()` exist and send correct worker messages.
+- [x] `isGpuGlobal` state correctly tracked on the manager.
+- [x] `⚡ GPU: OFF` / `⚡ GPU: ON` button appears for Host only.
+- [x] Button click toggles all local islands' GPU mode.
+- [x] Visual style (green glow on active) applied correctly.
+- [x] Telemetry cache stores `isGpuActive` per island.
+- [x] No UI regressions: Radiation Lab, Turbo Mode, Perf Limiter buttons unaffected.
 

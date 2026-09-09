@@ -11,6 +11,20 @@ import { Environment } from './environment.js';
 import { Agent } from './agent.js';
 import { NeuralNet } from './nn.js';
 
+// Dynamic import — only resolves if WebGPU is available.
+// Kept lazy so headless Node.js or non-WebGPU environments never fail.
+let GpuEnvironment = null;
+async function loadGpuEnvironment() {
+  if (GpuEnvironment) return GpuEnvironment;
+  try {
+    const mod = await import('./gpu-environment.js');
+    GpuEnvironment = mod.GpuEnvironment;
+  } catch (e) {
+    GpuEnvironment = null;
+  }
+  return GpuEnvironment;
+}
+
 export class Simulation {
   constructor(config = {}) {
     this.tickCount = 0;
@@ -19,6 +33,9 @@ export class Simulation {
 
     this.grid = new Grid(this.width, this.height);
     this.environment = new Environment(this.grid);
+    this.gpuEnvironment = null;       // GpuEnvironment instance when active
+    this.useGpu = false;              // Whether GPU mode is currently active
+    this.gpuInitPending = false;      // Guard against double-init
     this.agents = [];
     this.nextAgentId = 1;
 
@@ -78,6 +95,51 @@ export class Simulation {
     this.radiationMultiplier = Number(multiplier) || 4.0;
     this.stats.isRadiationMode = this.isRadiationMode;
     this.stats.radiationMultiplier = this.radiationMultiplier;
+  }
+
+  /**
+   * Attempt to enable GPU-accelerated environment ticking.
+   * @returns {Promise<boolean>} true if GPU mode is now active, false if CPU fallback.
+   */
+  async enableGpu() {
+    if (this.useGpu) return true; // Already enabled
+    if (this.gpuInitPending) return false;
+    this.gpuInitPending = true;
+
+    const Cls = await loadGpuEnvironment();
+    if (!Cls || !Cls.isSupported()) {
+      console.warn('[Simulation] WebGPU not supported — staying on CPU.');
+      this.gpuInitPending = false;
+      return false;
+    }
+
+    const gpuEnv = new Cls(this.grid);
+    const ok = await gpuEnv.init();
+    if (!ok) {
+      console.warn('[Simulation] GpuEnvironment.init() failed — staying on CPU.');
+      gpuEnv.destroy();
+      this.gpuInitPending = false;
+      return false;
+    }
+
+    this.gpuEnvironment = gpuEnv;
+    this.useGpu = true;
+    this.gpuInitPending = false;
+    console.log('[Simulation] GPU environment active (island', this.islandId, ')');
+    return true;
+  }
+
+  /**
+   * Disable GPU mode and return to CPU environment ticking.
+   */
+  disableGpu() {
+    if (this.gpuEnvironment) {
+      this.gpuEnvironment.destroy();
+      this.gpuEnvironment = null;
+    }
+    this.useGpu = false;
+    this.gpuInitPending = false;
+    console.log('[Simulation] Reverted to CPU environment (island', this.islandId, ')');
   }
 
   /**
@@ -401,8 +463,12 @@ export class Simulation {
   tick() {
     this.tickCount++;
 
-    // 1. Environmental Cellular Automata update
-    this.environment.tick();
+    // 1. Environmental Cellular Automata update (GPU or CPU path)
+    if (this.useGpu && this.gpuEnvironment) {
+      this.gpuEnvironment.tick();
+    } else {
+      this.environment.tick();
+    }
 
     // 2. Agents sense, think, act, reproduce, and die
     const newChildren = [];
@@ -647,6 +713,7 @@ export class Simulation {
       sim.reseedFromElites(sim.minPopulationFloor);
     }
 
+    sim.disableGpu();
     sim.updateStats();
     return sim;
   }

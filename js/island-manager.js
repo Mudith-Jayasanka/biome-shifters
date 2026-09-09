@@ -42,7 +42,8 @@ export class IslandManager {
         avgGen: 1,
         biomass: 0,
         tps: 0,
-        immigrantsReceived: 0
+        immigrantsReceived: 0,
+        isGpuActive: false
       };
     }
 
@@ -57,6 +58,10 @@ export class IslandManager {
     this.isTurbo = false;
     this.perfMode = config.perfMode || 'turbo';
     this.irradiatedIslands = new Set(config.irradiatedIslands || []);
+
+    // Track which islands have GPU mode active
+    this.gpuIslands = new Set();
+    this.isGpuGlobal = false; // Whether host requested GPU for all local islands
 
     // Cross-Island Elite Migration state
     this.migrationInterval = config.migrationInterval || 800; // Ticks between automatic migrations
@@ -133,6 +138,13 @@ export class IslandManager {
         perfMode: this.perfMode,
         isRadiationMode: this.irradiatedIslands.has(id)
       });
+
+      if (this.isGpuGlobal || this.gpuIslands.has(id)) {
+        worker.postMessage({
+          type: 'SET_GPU_MODE',
+          enable: true
+        });
+      }
     }
   }
 
@@ -221,6 +233,32 @@ export class IslandManager {
             cb(snapshotRecord);
           }
           this.snapshotCallbacks.delete(id);
+        }
+        break;
+      }
+
+      case 'GPU_MODE_CHANGED': {
+        // Update the tracked state to reflect what the worker actually achieved
+        const id = msg.islandId;
+        if (msg.active) {
+          this.gpuIslands.add(id);
+        } else {
+          this.gpuIslands.delete(id);
+        }
+        if (this.telemetry[id]) {
+          this.telemetry[id].isGpuActive = Boolean(msg.active);
+        }
+        // If init failed for any island, reflect that in isGpuGlobal
+        if (this.isGpuGlobal && !msg.active) {
+          console.warn(`[IslandManager] GPU init failed for island ${id}, using CPU fallback`);
+          if (this.gpuIslands.size === 0) {
+            this.isGpuGlobal = false;
+            const btn = (typeof document !== 'undefined') ? document.getElementById('btnToggleGpu') : null;
+            if (btn) {
+              btn.textContent = '⚡ GPU: OFF';
+              btn.classList.remove('gpu-active');
+            }
+          }
         }
         break;
       }
@@ -351,6 +389,43 @@ export class IslandManager {
   hasIsland(islandId) {
     const id = parseInt(islandId, 10);
     return !isNaN(id) && this.workerMap.has(id);
+  }
+
+  /**
+   * Enable or disable GPU acceleration for a specific local island.
+   * @param {number} islandId
+   * @param {boolean} enable
+   */
+  setIslandGpu(islandId, enable) {
+    const id = parseInt(islandId, 10);
+    const worker = this.workerMap.get(id);
+    if (!worker) return;
+    worker.postMessage({ type: 'SET_GPU_MODE', enable: Boolean(enable) });
+    if (enable) {
+      this.gpuIslands.add(id);
+    } else {
+      this.gpuIslands.delete(id);
+    }
+  }
+
+  /**
+   * Toggle GPU mode for ALL locally managed islands at once.
+   * @param {boolean} enable
+   */
+  setAllIslandsGpu(enable) {
+    this.isGpuGlobal = Boolean(enable);
+    for (const id of this.islandIds) {
+      this.setIslandGpu(id, enable);
+    }
+  }
+
+  /**
+   * Check whether GPU mode is active for a specific island.
+   * @param {number} islandId
+   * @returns {boolean}
+   */
+  isIslandGpuActive(islandId) {
+    return this.gpuIslands.has(parseInt(islandId, 10));
   }
 
   /**
