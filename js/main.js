@@ -9,6 +9,8 @@ import { IslandManager } from './island-manager.js';
 import { Renderer } from './renderer.js';
 import { StorageManager } from './storage.js';
 import { ClusterClient } from './cluster-client.js';
+import { flightRecorder } from './flight-recorder.js';
+import { GpuEnvironment } from './gpu-environment.js';
 
 // Action names for human-readable display
 const ACTION_NAMES = [
@@ -68,6 +70,9 @@ class App {
     this.clusterPollInterval = null;
     this.activeSnooperIsland = null;
     this.snooperPollInterval = null;
+    this.clusterGpuEnabled = false;
+    this.isWebGpuSupported = null; // null = pending check, true = supported, false = unsupported
+    this.isGpuToggling = false; // In-flight lock for GPU toggle transitions
 
     // Resilience & Version Synchronization
     this.countdownTimer = null;
@@ -83,6 +88,18 @@ class App {
     this.setupCanvasInteractions();
     this.setupUIControls();
     this.setupKeyboardShortcuts();
+    this.setupDiagnosticsModal();
+
+    // Check WebGPU capability pre-flight
+    try {
+      const gpuCheck = await GpuEnvironment.checkSupport();
+      this.isWebGpuSupported = Boolean(gpuCheck.supported);
+      if (!this.isWebGpuSupported) {
+        console.warn('[GPU] WebGPU capability pre-flight check failed:', gpuCheck.reason);
+      }
+    } catch (e) {
+      this.isWebGpuSupported = false;
+    }
 
     // Verify host vs contributor role via server cluster status
     try {
@@ -113,6 +130,15 @@ class App {
     this.islandManager.onMigrationEvent = (event) => {
       this.showMigrationToast(event);
     };
+    this.islandManager.onGpuFailure = (failedIslandId) => {
+      console.warn(`[Host] Island ${failedIslandId} reported WebGPU initialization failure, resetting GPU mode`);
+      this.clusterGpuEnabled = false;
+      this.updateGpuButtonUI(false);
+      if (this.clusterClient) {
+        this.clusterClient.gpuFailed = true;
+        this.clusterClient.toggleClusterGpu(false).catch(() => {});
+      }
+    };
 
     this.updateHudRoleBadge('👑 Host Admin • 8 Cores');
     this.buildIslandBarButtons();
@@ -120,6 +146,7 @@ class App {
     this.setupClusterModal();
     this.setupIslandCamModal();
     this.setupAutoSaveTimer();
+    this.updateGpuButtonUI(this.clusterGpuEnabled);
 
     this.clusterClient.on('island_radiation_change', () => {
       this.updateMultiIslandCard();
@@ -136,6 +163,15 @@ class App {
 
     this.clusterClient.on('reconnected_from_pause', () => {
       this.handleReconnectedFromPause();
+    });
+
+    this.clusterClient.on('gpu_mode_change', (enabled) => {
+      this.clusterGpuEnabled = Boolean(enabled);
+      this.updateGpuButtonUI(enabled);
+      const clusterModal = document.getElementById('modal-cluster-nodes');
+      if (clusterModal && !clusterModal.classList.contains('hidden')) {
+        this.refreshClusterNodes();
+      }
     });
 
     // Center initial camera
@@ -171,6 +207,9 @@ class App {
     });
     this.clusterClient.on('reconnected_from_pause', () => {
       this.handleReconnectedFromPause();
+    });
+    this.clusterClient.on('gpu_mode_change', (enabled) => {
+      this.clusterGpuEnabled = Boolean(enabled);
     });
 
     // Check if reloaded via cache-busting version parameter and restore saved session
@@ -440,6 +479,13 @@ class App {
       this.islandManager.setPerfMode(initialPerfMode);
       this.islandManager.onMigrationEvent = (event) => {
         this.showMigrationToast(event);
+      };
+      this.islandManager.onGpuFailure = (failedIslandId) => {
+        console.warn(`[Contributor] Island ${failedIslandId} reported WebGPU initialization failure`);
+        this.clusterGpuEnabled = false;
+        if (this.clusterClient) {
+          this.clusterClient.gpuFailed = true;
+        }
       };
 
       // Apply initial pause & speed from cluster state
@@ -779,12 +825,50 @@ class App {
       if (!this.isHost) {
         btnToggleGpu.style.display = 'none';
       }
-      btnToggleGpu.addEventListener('click', () => {
-        if (!this.islandManager) return;
-        const newState = !this.islandManager.isGpuGlobal;
-        this.islandManager.setAllIslandsGpu(newState);
-        btnToggleGpu.textContent = newState ? '⚡ GPU: ON' : '⚡ GPU: OFF';
-        btnToggleGpu.classList.toggle('gpu-active', newState);
+      btnToggleGpu.addEventListener('click', async () => {
+        if (!this.isHost) return;
+        if (this.isWebGpuSupported === false) return;
+        if (this.isGpuToggling) return;
+
+        this.isGpuToggling = true;
+        this.updateGpuButtonUI(this.clusterGpuEnabled);
+
+        const currentState = this.clusterGpuEnabled !== undefined
+          ? this.clusterGpuEnabled
+          : Boolean(this.islandManager && this.islandManager.isGpuGlobal);
+        const newState = !currentState;
+        try {
+          if (this.clusterClient) {
+            await this.clusterClient.toggleClusterGpu(newState);
+          } else if (this.islandManager) {
+            this.islandManager.setAllIslandsGpu(newState);
+          }
+
+          if (this.clusterClient?.gpuFailed || (this.islandManager && !this.islandManager.isGpuGlobal && newState)) {
+            this.clusterGpuEnabled = false;
+            this.updateGpuButtonUI(false);
+          } else {
+            this.clusterGpuEnabled = newState;
+            this.updateGpuButtonUI(newState);
+          }
+
+          const clusterModal = document.getElementById('modal-cluster-nodes');
+          if (clusterModal && !clusterModal.classList.contains('hidden')) {
+            this.refreshClusterNodes();
+          }
+        } catch (err) {
+          console.error('[GPU] Failed to toggle cluster GPU:', err);
+          this.clusterGpuEnabled = false;
+          this.updateGpuButtonUI(false);
+        } finally {
+          this.isGpuToggling = false;
+          if (this.clusterClient?.gpuFailed || (this.islandManager && !this.islandManager.isGpuGlobal)) {
+            this.clusterGpuEnabled = false;
+            this.updateGpuButtonUI(false);
+          } else {
+            this.updateGpuButtonUI(this.clusterGpuEnabled);
+          }
+        }
       });
     }
 
@@ -908,6 +992,141 @@ class App {
     }, 4000);
   }
 
+  openDiagnosticsModal() {
+    const modal = document.getElementById('modal-flight-recorder');
+    if (modal) modal.classList.remove('hidden');
+  }
+
+  closeDiagnosticsModal() {
+    const modal = document.getElementById('modal-flight-recorder');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  setupDiagnosticsModal() {
+    const btnOpen = document.getElementById('btn-flight-recorder');
+    const modal = document.getElementById('modal-flight-recorder');
+    const btnClose = document.getElementById('btn-recorder-close');
+    const btnToggle = document.getElementById('btn-recorder-toggle');
+    const btnDownload = document.getElementById('btn-recorder-download');
+    const statusBadge = document.getElementById('recorder-status-badge');
+    const timerEl = document.getElementById('recorder-timer');
+    const countEl = document.getElementById('recorder-event-count');
+    const syncStatus = document.getElementById('recorder-sync-status');
+
+    window.openTraceModal = () => this.openDiagnosticsModal();
+    window.closeTraceModal = () => this.closeDiagnosticsModal();
+    window.flightRecorder = flightRecorder;
+
+
+    let timerInterval = null;
+    let secondsElapsed = 0;
+
+    const updateTimerDisplay = () => {
+      const mins = String(Math.floor(secondsElapsed / 60)).padStart(2, '0');
+      const secs = String(secondsElapsed % 60).padStart(2, '0');
+      if (timerEl) timerEl.textContent = `${mins}:${secs}`;
+    };
+
+    flightRecorder.onEventRecorded = (count) => {
+      if (countEl) countEl.textContent = `${count} events captured`;
+    };
+
+    flightRecorder.onStatusChanged = (isRecording) => {
+      if (btnOpen) btnOpen.classList.toggle('recording', isRecording);
+      if (statusBadge) {
+        statusBadge.textContent = isRecording ? '🔴 RECORDING' : '⚪ STANDBY';
+        statusBadge.classList.toggle('active', isRecording);
+      }
+      if (btnToggle) {
+        btnToggle.textContent = isRecording ? '⏹️ Stop & Save Trace' : '⏺️ Start Recording';
+        btnToggle.classList.toggle('btn-danger', isRecording);
+        btnToggle.classList.toggle('btn-primary', !isRecording);
+      }
+      if (isRecording) {
+        secondsElapsed = 0;
+        updateTimerDisplay();
+        if (timerInterval) clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+          secondsElapsed++;
+          updateTimerDisplay();
+        }, 1000);
+        if (syncStatus) syncStatus.textContent = 'Tracing active...';
+      } else {
+        if (timerInterval) clearInterval(timerInterval);
+        timerInterval = null;
+      }
+    };
+
+    if (btnOpen) {
+      btnOpen.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.openDiagnosticsModal();
+      });
+    }
+
+    if (btnClose) {
+      btnClose.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.closeDiagnosticsModal();
+      });
+    }
+
+    modal?.addEventListener('click', (e) => {
+      if (e.target === modal) this.closeDiagnosticsModal();
+    });
+
+    if (btnToggle) {
+      btnToggle.addEventListener('click', async () => {
+        if (flightRecorder.isRecording) {
+          // Stop recording
+          if (syncStatus) syncStatus.textContent = 'Saving trace...';
+          flightRecorder.stop();
+          if (btnDownload) btnDownload.disabled = false;
+
+          // Auto upload to server
+          try {
+            const res = await flightRecorder.uploadToServer();
+            if (res && res.status === 'ok') {
+              if (syncStatus) syncStatus.textContent = `Saved to server: ${res.filename}`;
+            } else {
+              if (syncStatus) syncStatus.textContent = 'Uploaded to server';
+            }
+          } catch (e) {
+            if (syncStatus) syncStatus.textContent = 'Local only (server upload skipped)';
+          }
+
+          // Trigger local download
+          flightRecorder.downloadTrace();
+        } else {
+          // Hook workers before start
+          if (this.islandManager && this.islandManager.workerMap) {
+            this.islandManager.workerMap.forEach((w, id) => {
+              flightRecorder.hookWorker(w, `Island-${id}`);
+            });
+          }
+
+          const chkNet = document.getElementById('chk-rec-network');
+          const chkUi = document.getElementById('chk-rec-ui');
+          const chkWorker = document.getElementById('chk-rec-worker');
+          const chkConsole = document.getElementById('chk-rec-console');
+
+          flightRecorder.start({
+            network: chkNet ? chkNet.checked : true,
+            ui: chkUi ? chkUi.checked : true,
+            worker: chkWorker ? chkWorker.checked : true,
+            console: chkConsole ? chkConsole.checked : true
+          });
+        }
+      });
+    }
+
+    if (btnDownload) {
+      btnDownload.addEventListener('click', () => {
+        flightRecorder.downloadTrace();
+      });
+    }
+  }
+
   setupClusterModal() {
     if (this._clusterModalInitialized) return;
     this._clusterModalInitialized = true;
@@ -957,6 +1176,49 @@ class App {
     const tbody = document.getElementById('cluster-nodes-table-body');
     if (tbody) {
       tbody.addEventListener('click', async (e) => {
+        // Toggle GPU acceleration for all cluster nodes
+        const gpuBtn = e.target.closest('.node-gpu-btn');
+        if (gpuBtn) {
+          e.stopPropagation();
+          if (!this.isHost) return;
+          if (this.isWebGpuSupported === false || this.isGpuToggling) return;
+
+          this.isGpuToggling = true;
+          this.updateGpuButtonUI(this.clusterGpuEnabled);
+
+          const newState = !this.clusterGpuEnabled;
+          try {
+            if (this.clusterClient) {
+              await this.clusterClient.toggleClusterGpu(newState);
+            } else if (this.islandManager) {
+              this.islandManager.setAllIslandsGpu(newState);
+            }
+
+            if (this.clusterClient?.gpuFailed || (this.islandManager && !this.islandManager.isGpuGlobal && newState)) {
+              this.clusterGpuEnabled = false;
+              this.updateGpuButtonUI(false);
+            } else {
+              this.clusterGpuEnabled = newState;
+              this.updateGpuButtonUI(newState);
+            }
+
+            await this.refreshClusterNodes();
+          } catch (err) {
+            console.error('[GPU] Failed to toggle cluster GPU:', err);
+            this.clusterGpuEnabled = false;
+            this.updateGpuButtonUI(false);
+          } finally {
+            this.isGpuToggling = false;
+            if (this.clusterClient?.gpuFailed || (this.islandManager && !this.islandManager.isGpuGlobal)) {
+              this.clusterGpuEnabled = false;
+              this.updateGpuButtonUI(false);
+            } else {
+              this.updateGpuButtonUI(this.clusterGpuEnabled);
+            }
+          }
+          return;
+        }
+
         // Toggle radiation on an island rad toggle badge
         const radToggle = e.target.closest('.cam-rad-toggle');
         if (radToggle && radToggle.dataset.island !== undefined) {
@@ -1356,6 +1618,11 @@ class App {
         totalPop += (n.population || 0);
       }
 
+      if (typeof data.gpuEnabled === 'boolean' && this.clusterGpuEnabled !== data.gpuEnabled) {
+        this.clusterGpuEnabled = data.gpuEnabled;
+        this.updateGpuButtonUI(this.clusterGpuEnabled);
+      }
+
       const elNodes = document.getElementById('metric-cluster-nodes');
       if (elNodes) elNodes.textContent = `${nodes.length} Node${nodes.length !== 1 ? 's' : ''}`;
 
@@ -1419,6 +1686,17 @@ class App {
             </select>
           `;
 
+          const isGpuActive = (typeof data.gpuEnabled === 'boolean') ? data.gpuEnabled : Boolean(this.clusterGpuEnabled);
+          const gpuDisabled = this.isWebGpuSupported === false;
+          const gpuHtml = `
+            <button class="node-gpu-btn ${isGpuActive && !gpuDisabled ? 'gpu-active' : ''} ${gpuDisabled ? 'disabled' : ''}" 
+                    data-id="${n.nodeId}" 
+                    ${gpuDisabled ? 'disabled' : ''}
+                    title="${gpuDisabled ? 'WebGPU is not supported by this browser or graphics card (CPU simulation only)' : 'Toggle WebGPU acceleration for all cluster nodes'}">
+              ${gpuDisabled ? '⚡ N/A' : (isGpuActive ? '⚡ ON' : '⚡ OFF')}
+            </button>
+          `;
+
           let actionsHtml = '<span class="text-muted text-xs">Host Admin</span>';
           if (!isHost) {
             const isHidden = Boolean(n.isHidden);
@@ -1446,11 +1724,12 @@ class App {
               <td class="col-node-tps mono highlight-action">${(n.tps || 0).toLocaleString()} TPS</td>
               <td class="col-node-pop mono">${(n.population || 0).toLocaleString()}</td>
               <td class="col-node-perf">${perfHtml}</td>
+              <td class="col-node-gpu">${gpuHtml}</td>
               <td class="col-node-status">${statusHtml}</td>
               <td class="col-node-actions">${actionsHtml}</td>
             </tr>
             <tr class="node-cams-row ${rowClass}" data-node-id="${n.nodeId}">
-              <td colspan="9" class="col-node-cams-cell">
+              <td colspan="10" class="col-node-cams-cell">
                 <div class="node-cams-container">
                   <span class="node-cams-heading">📹 Cameras:</span>
                   <div class="node-cams-list">
@@ -2180,6 +2459,36 @@ class App {
       details?.classList.add('hidden');
       if (agentBadge) agentBadge.textContent = 'None';
     }
+  }
+
+  updateGpuButtonUI(enabled) {
+    const btn = document.getElementById('btnToggleGpu');
+    if (!btn) return;
+
+    if (this.isWebGpuSupported === false) {
+      btn.textContent = '⚡ GPU: N/A';
+      btn.classList.add('disabled');
+      btn.classList.remove('gpu-active', 'busy');
+      btn.setAttribute('disabled', 'true');
+      btn.title = 'WebGPU is not supported by this browser or graphics card (CPU simulation only)';
+      return;
+    }
+
+    if (this.isGpuToggling) {
+      btn.textContent = '⚡ GPU: ...';
+      btn.classList.add('busy');
+      btn.classList.remove('gpu-active');
+      btn.title = 'Toggling WebGPU compute acceleration...';
+      return;
+    }
+
+    btn.classList.remove('busy', 'disabled');
+    btn.removeAttribute('disabled');
+    btn.textContent = enabled ? '⚡ GPU: ON' : '⚡ GPU: OFF';
+    btn.classList.toggle('gpu-active', Boolean(enabled));
+    btn.title = enabled
+      ? 'WebGPU compute acceleration is active'
+      : 'Click to enable WebGPU compute acceleration';
   }
 
   updateIslandBarUI() {

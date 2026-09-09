@@ -30,6 +30,8 @@ export class ClusterClient {
     this.clientBuildVersion = null;
     this.retryIntervalMs = 3000;
     this.autoDisconnectThresholdMs = 180000; // 3 minutes (180s)
+    this.gpuFailed = false; // Flag to prevent infinite retry when GPU init fails
+    this.gpuRequestSeq = 0; // Monotonic request sequence counter to prevent out-of-order race conditions
   }
 
 
@@ -293,6 +295,20 @@ export class ClusterClient {
       }
     }
 
+    // Synchronize GPU acceleration mode
+    if (typeof globalState.gpuEnabled === 'boolean') {
+      const wantGpu = globalState.gpuEnabled;
+      if (!wantGpu) {
+        this.gpuFailed = false;
+      }
+      if (this.islandManager && this.islandManager.isGpuGlobal !== wantGpu) {
+        if (!wantGpu || !this.gpuFailed) {
+          this.islandManager.setAllIslandsGpu(wantGpu);
+          this.emit('gpu_mode_change', wantGpu);
+        }
+      }
+    }
+
     // Demand-driven satellite snapshot request: check if Host is actively watching one of our islands
     if (globalState.requestedSnapshotIsland !== null && globalState.requestedSnapshotIsland !== undefined) {
       const targetIsland = parseInt(globalState.requestedSnapshotIsland, 10);
@@ -485,7 +501,7 @@ export class ClusterClient {
       return await resp.json();
     } catch (err) {
       console.warn('[ClusterClient] Failed to fetch cluster nodes:', err);
-      return { nodes: [], isHost: this.isHost };
+      return { nodes: [], isHost: this.isHost, gpuEnabled: false };
     }
   }
 
@@ -579,6 +595,59 @@ export class ClusterClient {
 
     const data = await resp.json();
     this.emit('island_radiation_change', { islandId: targetId, enabled: isTargetEnabled, multiplier: mult });
+    return data;
+  }
+
+  /**
+   * Host administration: enable/disable GPU for all cluster nodes.
+   * @param {boolean} enabled
+   */
+  async toggleClusterGpu(enabled) {
+    const isTargetEnabled = Boolean(enabled);
+    const seq = ++this.gpuRequestSeq;
+
+    if (isTargetEnabled) {
+      this.gpuFailed = false;
+    }
+
+    // Apply locally for instant response
+    if (this.islandManager) {
+      this.islandManager.setAllIslandsGpu(isTargetEnabled);
+    }
+
+    let resp;
+    try {
+      resp = await fetch(`${this.apiBase}/api/cluster/gpu`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: isTargetEnabled })
+      });
+    } catch (err) {
+      if (seq !== this.gpuRequestSeq) return { superseded: true };
+      throw err;
+    }
+
+    // Stale check: if superseded by a newer toggle request or failure, drop response
+    if (seq !== this.gpuRequestSeq) {
+      return { superseded: true };
+    }
+
+    if (!resp.ok) {
+      const errData = await resp.json().catch(() => ({}));
+      throw new Error(errData.error || `Failed to set cluster GPU mode: ${resp.statusText}`);
+    }
+
+    const data = await resp.json();
+
+    if (seq !== this.gpuRequestSeq) {
+      return { superseded: true };
+    }
+
+    if (this.gpuFailed && isTargetEnabled) {
+      return { aborted: true };
+    }
+
+    this.emit('gpu_mode_change', isTargetEnabled);
     return data;
   }
 

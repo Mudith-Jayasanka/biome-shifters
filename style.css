@@ -1244,6 +1244,28 @@ html, body {
   color: #a7f3d0;
 }
 
+.gpu-btn.disabled,
+.gpu-btn[disabled],
+.node-gpu-btn.disabled,
+.node-gpu-btn[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed !important;
+  background: #1f2937 !important;
+  border-color: #374151 !important;
+  color: #9ca3af !important;
+  box-shadow: none !important;
+  pointer-events: none;
+}
+
+.gpu-btn.busy,
+.node-gpu-btn.busy {
+  opacity: 0.8;
+  cursor: wait !important;
+  background: #1e293b !important;
+  border-color: #3b82f6 !important;
+  color: #93c5fd !important;
+}
+
 /* Modal Auto-Save Configuration Bar */
 .modal-autosave-bar {
   display: flex;
@@ -2240,6 +2262,44 @@ body.mode-contributor #btn-migrate-now {
   min-width: 140px;
 }
 
+.col-node-gpu {
+  text-align: center;
+  white-space: nowrap;
+  min-width: 80px;
+}
+
+.node-gpu-btn {
+  background: #1a3a1a;
+  color: #4ade80;
+  border: 1px solid #166534;
+  border-radius: var(--radius-sm);
+  padding: 3px 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.node-gpu-btn:hover {
+  background: #234e23;
+  border-color: #22c55e;
+  color: #86efac;
+}
+
+.node-gpu-btn.gpu-active {
+  background: #064e3b;
+  color: #6ee7b7;
+  border-color: #34d399;
+  box-shadow: 0 0 6px rgba(52, 211, 153, 0.4);
+}
+
+.node-gpu-btn.gpu-active:hover {
+  background: #047857;
+  border-color: #6ee7b7;
+  color: #a7f3d0;
+}
+
 .col-node-status {
   text-align: left;
   white-space: nowrap;
@@ -3085,6 +3145,172 @@ body.mode-contributor #btn-migrate-now {
   width: 100%;
   justify-content: center;
 }
+
+/* --- Diagnostics Flight Recorder --- */
+.btn-recorder {
+  position: relative;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.btn-recorder.recording {
+  background: rgba(248, 81, 73, 0.2) !important;
+  border-color: rgba(248, 81, 73, 0.6) !important;
+  color: #ff7b72 !important;
+  animation: pulse-rec 1.5s infinite;
+}
+
+@keyframes pulse-rec {
+  0% { box-shadow: 0 0 0 0 rgba(248, 81, 73, 0.5); }
+  70% { box-shadow: 0 0 0 8px rgba(248, 81, 73, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(248, 81, 73, 0); }
+}
+
+#modal-flight-recorder {
+  z-index: 10001 !important;
+}
+
+.modal-recorder-dialog {
+  max-width: 580px;
+  width: 92%;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-highlight);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7), 0 0 24px rgba(248, 81, 73, 0.15);
+}
+
+.recorder-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+}
+
+.recorder-status-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.recorder-status-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.recorder-status-badge {
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+  letter-spacing: 0.5px;
+}
+
+.recorder-status-badge.active {
+  background: rgba(248, 81, 73, 0.25);
+  color: #ff7b72;
+  border: 1px solid rgba(248, 81, 73, 0.5);
+}
+
+.recorder-timer {
+  font-family: monospace;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.recorder-stats-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.recorder-section-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.recorder-channels-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.channel-checkbox-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.channel-checkbox-label:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--border-highlight);
+}
+
+.channel-checkbox-label input[type="checkbox"] {
+  margin-top: 3px;
+  accent-color: var(--accent-blue);
+  width: 16px;
+  height: 16px;
+}
+
+.channel-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.channel-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.channel-desc {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.recorder-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.recorder-actions button {
+  flex: 1;
+}
+
+.recorder-footer-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+  background: rgba(88, 166, 255, 0.06);
+  border: 1px solid rgba(88, 166, 255, 0.2);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+
+.recorder-footer-hint code {
+  color: var(--accent-cyan);
+}
+
 
 
 

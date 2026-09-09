@@ -59,6 +59,34 @@ let lastTpsTime = performance.now();
 let currentTps = 0;
 let lastTelemetryTime = performance.now();
 
+// Forward worker console errors and warnings to the main thread / flight recorder
+const origError = console.error.bind(console);
+const origWarn = console.warn.bind(console);
+
+console.error = (...args) => {
+  origError(...args);
+  try {
+    self.postMessage({
+      type: 'WORKER_LOG',
+      level: 'error',
+      islandId,
+      message: args.map(a => (typeof a === 'object' ? (a?.message || JSON.stringify(a)) : String(a))).join(' ')
+    });
+  } catch (e) {}
+};
+
+console.warn = (...args) => {
+  origWarn(...args);
+  try {
+    self.postMessage({
+      type: 'WORKER_LOG',
+      level: 'warn',
+      islandId,
+      message: args.map(a => (typeof a === 'object' ? (a?.message || JSON.stringify(a)) : String(a))).join(' ')
+    });
+  } catch (e) {}
+};
+
 function measureTpsAndSendTelemetry() {
   const now = performance.now();
   const elapsed = now - lastTpsTime;
@@ -362,12 +390,13 @@ self.onmessage = function (e) {
           });
         });
       } else {
-        simulation.disableGpu();
-        self.postMessage({
-          type: 'GPU_MODE_CHANGED',
-          islandId,
-          active: false,
-          requested: false
+        simulation.disableGpu().then(() => {
+          self.postMessage({
+            type: 'GPU_MODE_CHANGED',
+            islandId,
+            active: false,
+            requested: false
+          });
         });
       }
       break;

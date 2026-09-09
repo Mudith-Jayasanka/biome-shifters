@@ -142,6 +142,14 @@ TASK_57 (GPU/CPU Toggle in Simulation.tick() & Island Worker)
 TASK_58 (IslandManager GPU API & Host HUD Toggle Button)
    ↓
 TASK_59 (GPU Cluster Propagation & Admin Control for Contributor Nodes)
+   ↓
+TASK_60 (Fix GPU Toggle Oscillation & Worker Shader Path Resolution)
+   ↓
+TASK_61 (Flight Recorder Diagnostics System & Trace Analyzer)
+   ↓
+TASK_62 (Fix GPU Toggle Async Race Condition & WebGPU Capability Detection)
+   ↓
+TASK_63 (Fix WebGPU Shader NaN Propagation, Readback Queue Saturation, and Terrain State Handover)
 ```
 
 ---
@@ -208,7 +216,11 @@ TASK_59 (GPU Cluster Propagation & Admin Control for Contributor Nodes)
 | **56** | `TASK_56_webgpu_environment_engine.md` | `js/gpu-environment.js` [NEW], `js/wgsl/*.wgsl` [NEW] | `DONE` | WebGPU compute shader engine replicating all 8 CA passes from `environment.js`. GPU-only module, no UI wiring yet. |
 | **57** | `TASK_57_gpu_toggle_simulation_and_worker.md` | `js/simulation.js`, `js/workers/island.worker.js` | `DONE` | Wire `GpuEnvironment` into `Simulation.tick()` with runtime GPU/CPU toggle via `enableGpu()` / `disableGpu()`. Worker handles `SET_GPU_MODE` message. |
 | **58** | `TASK_58_gpu_toggle_island_manager_and_host_ui.md` | `js/island-manager.js`, `js/main.js`, `index.html`, `style.css` | `DONE` | `IslandManager.setAllIslandsGpu()` and a ⚡ GPU toggle button in the Host HUD (hidden from contributors). |
-| **59** | `TASK_59_gpu_cluster_propagation_and_admin_control.md` | `server.py`, `js/cluster-client.js`, `js/main.js`, `index.html`, `style.css` | `TODO` | Server `gpuEnabled` global state flag, `POST /api/cluster/gpu` endpoint, cluster heartbeat sync, and per-node GPU button in Cluster Nodes dashboard. |
+| **59** | `TASK_59_gpu_cluster_propagation_and_admin_control.md` | `server.py`, `js/cluster-client.js`, `js/main.js`, `index.html`, `style.css` | `DONE` | Server `gpuEnabled` global state flag, `POST /api/cluster/gpu` endpoint, cluster heartbeat sync, and per-node GPU button in Cluster Nodes dashboard. |
+| **60** | `TASK_60_fix_gpu_toggle_oscillation_and_worker_path.md` | `js/gpu-environment.js`, `js/island-manager.js`, `js/cluster-client.js`, `js/main.js`, `server.py` | `DONE` | Fix GPU toggle oscillation bug, worker shader 404 path resolution, and heartbeat state re-triggering. |
+| **61** | `TASK_61_flight_recorder_diagnostics_and_analyzer.md` | `js/flight-recorder.js`, `server.py`, `index.html`, `style.css`, `js/main.js`, `scripts/analyze_trace.py` | `DONE` | Build in-app flight recorder, recording popup modal, server trace store, and timeline CLI analyzer. |
+| **62** | `TASK_62_fix_gpu_toggle_race_condition_and_unsupported_state.md` | `js/gpu-environment.js`, `js/main.js`, `js/cluster-client.js`, `js/island-manager.js` | `DONE` | Fix GPU toggle async race condition identified in flight recorder, add in-flight locking, and detect WebGPU capability. |
+| **63** | `TASK_63_fix_webgpu_shader_nan_and_readback_saturation.md` | `js/wgsl/*.wgsl`, `js/gpu-environment.js`, `js/simulation.js`, `js/workers/island.worker.js`, `js/main.js` | `DONE` | Fix WebGPU shader NaN propagation, decouple GPU dispatch/readback cadence, and ensure clean terrain state handover. |
 
 
 

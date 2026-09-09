@@ -87,7 +87,10 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     count += 1.0;
   }
 
-  let avg_neighbors = select(absorbed_m, neighbor_sum / count, count > 0.0);
+  var avg_neighbors = absorbed_m;
+  if (count > 0.0) {
+    avg_neighbors = neighbor_sum / count;
+  }
   var new_m = absorbed_m + u.moistureDiffusion * (avg_neighbors - absorbed_m) - u.moistureDrying;
 
   // Keep water tiles saturated

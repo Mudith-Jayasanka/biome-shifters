@@ -1,6 +1,6 @@
 # TASK_59 — GPU Cluster Propagation: Host Admin Control for Contributor Nodes
 
-**Status**: `TODO`
+**Status**: `DONE`
 
 ---
 
@@ -181,12 +181,12 @@ Track `clusterGpuEnabled` in `main.js` as a module-level variable, updated by th
 
 ## Acceptance Criteria
 
-- [ ] `POST /api/cluster/gpu` endpoint exists in `server.py` and updates `ClusterManager.gpu_enabled`.
-- [ ] `gpuEnabled` field is present in every `globalState` response dict in `server.py`.
-- [ ] `ClusterClient.syncGlobalState()` reads `gpuEnabled` and calls `islandManager.setAllIslandsGpu()` accordingly on Contributor machines.
-- [ ] `ClusterClient.toggleClusterGpu()` exists and correctly POSTs to the server.
-- [ ] Cluster Nodes dashboard shows a `⚡ GPU` button per node row.
-- [ ] Host HUD `⚡ GPU` button routes through `toggleClusterGpu()` when in cluster mode.
-- [ ] No GPU-related terminal spam in `server.py`.
-- [ ] CPU-only path remains fully functional with no changes needed on machines where WebGPU is unavailable — GPU init simply fails silently and the simulation keeps running on CPU.
+- [x] `POST /api/cluster/gpu` endpoint exists in `server.py` and updates `ClusterManager.gpu_enabled`.
+- [x] `gpuEnabled` field is present in every `globalState` response dict in `server.py`.
+- [x] `ClusterClient.syncGlobalState()` reads `gpuEnabled` and calls `islandManager.setAllIslandsGpu()` accordingly on Contributor machines.
+- [x] `ClusterClient.toggleClusterGpu()` exists and correctly POSTs to the server.
+- [x] Cluster Nodes dashboard shows a `⚡ GPU` button per node row.
+- [x] Host HUD `⚡ GPU` button routes through `toggleClusterGpu()` when in cluster mode.
+- [x] No GPU-related terminal spam in `server.py`.
+- [x] CPU-only path remains fully functional with no changes needed on machines where WebGPU is unavailable — GPU init simply fails silently and the simulation keeps running on CPU.
 

@@ -121,3 +121,28 @@ These core principles were derived from extensive simulation tuning, evolutionar
 
 10. **Multi-Island / Speciation Migration**:
     - Prepare the architecture for isolated world chunks or multiple simulation islands where migration occurs periodically. Isolated gene pools foster unique evolutionary strategies that outcompete stagnant monocultures.
+
+11. **Reconciliation Loop Failure Latches (Desired vs. Achieved State)**:
+    - Never run periodic state reconciliation (e.g. heartbeat loops, cluster synchronization) without an explicit failure latch or upstream state update.
+    - If a client or worker attempts to reach a `desired_state` and encounters a hardware or initialization failure, it must fall back cleanly and **latch** that failure (`failed = true`) or immediately update the coordinator (`desired_state = false`).
+    - Without a failure latch, continuous reconciliation will detect an `achieved !== desired` discrepancy every tick/heartbeat and create an infinite retry oscillation storm.
+
+12. **Worker Context-Invariant Asset Resolution (`import.meta.url`)**:
+    - Never use document-relative paths (`./js/...` or `/js/...`) for loading assets (WGSL shaders, web workers, data fixtures) inside modular libraries.
+    - Code executing inside a Web Worker runs under a different base URI (e.g. `/js/workers/`) than code running on the main thread (`/`).
+    - Always resolve paths relative to the defining module using `new URL('./relative/path', import.meta.url).href`. This ensures flawless asset discovery regardless of whether code runs on the main thread, inside workers, or in headless test runners.
+
+13. **Strict Coordinator vs. UI Boundary Separation**:
+    - Headless managers (`Simulation`, `IslandManager`, `ClusterClient`) must remain strictly isolated from the DOM and document tree.
+    - Never query, read, or mutate DOM elements (`document.getElementById(...)`) inside background coordinators or worker message handlers.
+    - Propagate failures and state transitions upward using callbacks or event emitters (`this.onGpuFailure = (id) => ...`). UI rendering and DOM updates belong exclusively in the presentation layer (`main.js`).
+
+14. **Fixed Overlays & Stacking Context Isolation (`position: fixed` Root Attachment)**:
+    - Never place full-screen overlays, modals, backdrops, or HUD alert dialogs inside nested layout containers (e.g. `#app-root`, `#main-container`, or canvas wrappers) that use `overflow: hidden`, `backdrop-filter`, `transform`, `filter`, or `perspective`.
+    - CSS specifications define that properties like `backdrop-filter` or `transform` on an ancestor element establish a new stacking context and containing block. This traps `position: fixed` descendants within the container's bounding box and stacking layer, causing modals to be clipped, trapped beneath canvas layers, or rendered completely invisible despite having `display: flex` and high `z-index`.
+    - All modal backdrops and global dialogs MUST be placed as direct children of `<body>` (`document.body`).
+
+15. **ES Module URL Identity & Cache-Busting Hygiene**:
+    - Avoid appending ad-hoc cache-busting query strings (`?v=...`) directly to `<script type="module" src="...">` unless all internal relative imports are correspondingly versioned.
+    - In ES module loaders, module graph identity is defined strictly by exact URL strings. Mismatched query strings between top-level module tags and internal relative `import` paths can create duplicate module instances, cause silent import resolution failures, or bypass cached singletons. Use proper HTTP response cache-control headers (`no-cache, no-store`) for live development rather than ad-hoc query strings on module scripts.
+

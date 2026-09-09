@@ -1,9 +1,9 @@
 {
   "major": 1,
   "minor": 1,
-  "patch": 3,
-  "build": 13,
-  "version": "1.1.3",
-  "timestamp": "2026-09-09T06:40:48Z",
-  "action": "TASK_58: WebGPU Toggle IslandManager API & Host UI"
+  "patch": 5,
+  "build": 14,
+  "version": "1.1.5",
+  "timestamp": "2026-09-09T11:01:49Z",
+  "action": "TASK_63: Fix WebGPU shader NaN, queue saturation, and state handover"
 }

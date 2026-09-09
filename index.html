@@ -3,8 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>Biome Shifters — Artificial Life & Dynamic Ecology</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=1.1.4">
+  <link rel="stylesheet" href="style.css?v=1.1.5">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -51,6 +55,9 @@
         </div>
 
         <div class="action-buttons">
+          <button id="btn-flight-recorder" class="btn btn-secondary btn-recorder" title="Open Diagnostics Flight Recorder" onclick="window.openTraceModal ? window.openTraceModal() : document.getElementById('modal-flight-recorder')?.classList.remove('hidden')">
+            ⏺️ Trace
+          </button>
           <button id="btn-cluster-hud" class="btn btn-secondary" title="View Connected Cluster Nodes & LAN Link">
             🌐 Cluster <span id="badge-cluster-nodes-count" class="tab-badge">1</span>
           </button>
@@ -645,6 +652,7 @@
                     <th class="col-node-tps">Current TPS</th>
                     <th class="col-node-pop">Population</th>
                     <th class="col-node-perf">Performance</th>
+                    <th class="col-node-gpu">GPU</th>
                     <th class="col-node-status">Status</th>
                     <th class="col-node-actions">Actions</th>
                   </tr>
@@ -806,8 +814,102 @@
     </div>
   </div>
 
+  <!-- Diagnostics Flight Recorder Modal — OUTSIDE #app-root so position:fixed works correctly -->
+  <div id="modal-flight-recorder" class="modal-backdrop hidden">
+    <div class="modal-dialog modal-recorder-dialog">
+      <div class="modal-header">
+        <div class="modal-header-brand">
+          <span class="modal-header-icon">⏺️</span>
+          <div>
+            <h2 class="modal-title">Flight Recorder Diagnostics</h2>
+            <p class="modal-subtitle">Black-box event tracer for debugging state, network, and worker interactions</p>
+          </div>
+        </div>
+        <button id="btn-recorder-close" class="btn-icon modal-close" title="Close Diagnostics Modal" onclick="window.closeTraceModal ? window.closeTraceModal() : document.getElementById('modal-flight-recorder')?.classList.add('hidden')">✕</button>
+      </div>
+
+      <div class="modal-body recorder-body">
+        <div class="recorder-status-card" id="recorder-status-card">
+          <div class="recorder-status-header">
+            <span class="recorder-status-badge" id="recorder-status-badge">⚪ STANDBY</span>
+            <span class="recorder-timer" id="recorder-timer">00:00</span>
+          </div>
+          <div class="recorder-stats-row">
+            <span id="recorder-event-count">0 events captured</span>
+            <span class="text-muted" id="recorder-sync-status">Ready to trace</span>
+          </div>
+        </div>
+
+        <div class="recorder-section-title">Select Recording Channels:</div>
+        <div class="recorder-channels-grid">
+          <label class="channel-checkbox-label">
+            <input type="checkbox" id="chk-rec-network" checked>
+            <div class="channel-info">
+              <span class="channel-name">🌐 Network Calls</span>
+              <span class="channel-desc">fetch requests, responses, status, latency & bodies</span>
+            </div>
+          </label>
+
+          <label class="channel-checkbox-label">
+            <input type="checkbox" id="chk-rec-ui" checked>
+            <div class="channel-info">
+              <span class="channel-name">🖱️ UI & DOM Mutations</span>
+              <span class="channel-desc">User button clicks & programmatic element text/class changes</span>
+            </div>
+          </label>
+
+          <label class="channel-checkbox-label">
+            <input type="checkbox" id="chk-rec-worker" checked>
+            <div class="channel-info">
+              <span class="channel-name">⚙️ Web Worker IPC</span>
+              <span class="channel-desc">postMessage & onmessage across worker threads</span>
+            </div>
+          </label>
+
+          <label class="channel-checkbox-label">
+            <input type="checkbox" id="chk-rec-console" checked>
+            <div class="channel-info">
+              <span class="channel-name">⚠️ Console Warnings/Errors</span>
+              <span class="channel-desc">console.warn & console.error with stack traces</span>
+            </div>
+          </label>
+        </div>
+
+        <div class="recorder-actions">
+          <button id="btn-recorder-toggle" class="btn btn-primary btn-lg">
+            ⏺️ Start Recording
+          </button>
+          <button id="btn-recorder-download" class="btn btn-secondary" disabled title="Download JSON trace to your computer">
+            💾 Download JSON
+          </button>
+        </div>
+
+        <div class="recorder-footer-hint">
+          💡 When you stop recording, the trace is saved directly to <code>debug/trace_latest.json</code> on the server and downloaded locally. Run <code>python3 scripts/analyze_trace.py</code> in terminal to view the timeline.
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Entry Script -->
   <script type="module" src="js/main.js"></script>
+
+  <!-- Fallback inline bootstrap for diagnostics modal -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      var btn = document.getElementById('btn-flight-recorder');
+      var modal = document.getElementById('modal-flight-recorder');
+      if (btn && modal) {
+        btn.addEventListener('click', function(e) {
+          if (typeof window.openTraceModal === 'function') {
+            window.openTraceModal();
+          } else {
+            modal.classList.remove('hidden');
+          }
+        });
+      }
+    });
+  </script>
 </body>
 </html>
 

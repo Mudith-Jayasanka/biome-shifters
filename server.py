@@ -21,10 +21,12 @@ from pathlib import Path
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8080
 BASE_DIR = Path(__file__).resolve().parent
 SAVES_DIR = BASE_DIR / "saves"
+DEBUG_DIR = BASE_DIR / "debug"
 METADATA_FILE = SAVES_DIR / "metadata.json"
 VERSION_FILE = BASE_DIR / "version.json"
 
 os.makedirs(SAVES_DIR, exist_ok=True)
+os.makedirs(DEBUG_DIR, exist_ok=True)
 
 
 def get_build_version() -> dict:
@@ -133,6 +135,7 @@ class ClusterManager:
     kicked_nodes = set()
     host_node_id = 'host_local'
     irradiated_islands = set()
+    gpu_enabled = False  # Global GPU flag pushed to ALL cluster nodes
 
     # Demand-driven snooper watch target: { 'islandId': None, 'expiresAt': 0.0 }
     snooper_watch = {'islandId': None, 'expiresAt': 0.0}
@@ -207,7 +210,8 @@ class ClusterManager:
                     'speed': cls.speed,
                     'isTurbo': cls.is_turbo,
                     'migrationEpoch': cls.migration_epoch,
-                    'irradiatedIslands': sorted(list(cls.irradiated_islands))
+                    'irradiatedIslands': sorted(list(cls.irradiated_islands)),
+                    'gpuEnabled': cls.gpu_enabled
                 }
             }
 
@@ -308,6 +312,7 @@ class ClusterManager:
                     'tick': cls.tick,
                     'migrationEpoch': cls.migration_epoch,
                     'irradiatedIslands': sorted(list(cls.irradiated_islands)),
+                    'gpuEnabled': cls.gpu_enabled,
                     'requestedSnapshotIsland': req_island
                 }
             }
@@ -379,6 +384,12 @@ class ClusterManager:
                 'enabled': bool(enabled),
                 'irradiatedIslands': sorted(list(cls.irradiated_islands))
             }
+
+    @classmethod
+    def set_gpu_mode(cls, enabled: bool) -> dict:
+        with cls._lock:
+            cls.gpu_enabled = bool(enabled)
+            return {'ok': True, 'gpuEnabled': cls.gpu_enabled}
 
     @classmethod
     def set_snooper_watch(cls, island_id: int, duration_sec: float = 4.0) -> dict:
@@ -492,7 +503,8 @@ class ClusterManager:
                     'speed': cls.speed,
                     'isTurbo': cls.is_turbo,
                     'migrationEpoch': cls.migration_epoch,
-                    'irradiatedIslands': sorted(list(cls.irradiated_islands))
+                    'irradiatedIslands': sorted(list(cls.irradiated_islands)),
+                    'gpuEnabled': cls.gpu_enabled
                 }
             }
 
@@ -527,6 +539,7 @@ class ClusterManager:
                     'isHidden': bool(n.get('isHidden', False)),
                     'perfMode': n.get('perfMode', 'standard'),
                     'irradiatedIslands': node_irradiated,
+                    'gpuEnabled': cls.gpu_enabled,
                     'status': status
                 })
             result.sort(key=lambda x: (0 if x['isHost'] else 1, x['name']))
@@ -987,6 +1000,10 @@ class BiomeShiftersRequestHandler(http.server.SimpleHTTPRequestHandler):
             self._handle_cluster_island_radiation()
             return
 
+        if path == '/api/cluster/gpu' or path == '/api/cluster/gpu/':
+            self._handle_cluster_gpu()
+            return
+
         if path == '/api/cluster/snooper/watch' or path == '/api/cluster/snooper/watch/':
             self._handle_cluster_snooper_watch()
             return
@@ -1006,6 +1023,11 @@ class BiomeShiftersRequestHandler(http.server.SimpleHTTPRequestHandler):
         # Save simulation: POST /api/saves
         if path == '/api/saves' or path == '/api/saves/':
             self._handle_save()
+            return
+
+        # Diagnostics trace upload: POST /api/debug/trace
+        if path == '/api/debug/trace' or path == '/api/debug/trace/':
+            self._handle_debug_trace()
             return
 
         self._send_json(404, {'error': 'Endpoint not found'})
@@ -1104,7 +1126,8 @@ class BiomeShiftersRequestHandler(http.server.SimpleHTTPRequestHandler):
             'nodes': nodes,
             'isHost': self.is_localhost_request(),
             'hostIp': get_lan_ip(),
-            'port': PORT
+            'port': PORT,
+            'gpuEnabled': ClusterManager.gpu_enabled
         })
 
     def _handle_cluster_join(self):
@@ -1253,6 +1276,20 @@ class BiomeShiftersRequestHandler(http.server.SimpleHTTPRequestHandler):
         except Exception as e:
             self._send_json(500, {'error': f'Failed to update island radiation: {str(e)}'})
 
+    def _handle_cluster_gpu(self):
+        if not self.is_localhost_request():
+            self._send_json(403, {'error': 'Cluster administration is restricted to Host admin (localhost)'})
+            return
+        content_length = int(self.headers.get('Content-Length', 0))
+        try:
+            body = self.rfile.read(content_length).decode('utf-8') if content_length > 0 else '{}'
+            data = json.loads(body)
+            enabled = bool(data.get('enabled', False))
+            res = ClusterManager.set_gpu_mode(enabled)
+            self._send_json(200, res)
+        except Exception as e:
+            self._send_json(500, {'error': f'Failed to set GPU mode: {str(e)}'})
+
     def _handle_cluster_migration_pool(self):
         parsed = urllib.parse.urlparse(self.path)
         qs = urllib.parse.parse_qs(parsed.query)
@@ -1338,6 +1375,41 @@ class BiomeShiftersRequestHandler(http.server.SimpleHTTPRequestHandler):
             self._send_json(404, {'error': 'No snapshot available for this island', 'islandId': iid})
             return
         self._send_json(200, snap)
+
+    def _handle_debug_trace(self):
+        content_length = int(self.headers.get('Content-Length', 0))
+        if content_length <= 0:
+            self._send_json(400, {'error': 'Empty trace body'})
+            return
+
+        try:
+            body = self.rfile.read(content_length).decode('utf-8')
+            data = json.loads(body)
+        except Exception as e:
+            self._send_json(400, {'error': f'Invalid JSON payload: {e}'})
+            return
+
+        timestamp = time.strftime('%Y%m%d_%H%M%S')
+        filename = f"trace_{timestamp}.json"
+        target = DEBUG_DIR / filename
+        latest_target = DEBUG_DIR / "trace_latest.json"
+
+        try:
+            with open(target, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2)
+
+            with open(latest_target, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2)
+
+            event_count = len(data.get('events', []))
+            print(f"[FlightRecorder] Trace saved: {filename} ({event_count} events)")
+            self._send_json(200, {
+                'status': 'ok',
+                'filename': filename,
+                'eventCount': event_count
+            })
+        except Exception as e:
+            self._send_json(500, {'error': f'Failed to write trace: {e}'})
 
 
 if __name__ == '__main__':

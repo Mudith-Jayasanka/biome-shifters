@@ -62,6 +62,7 @@ export class IslandManager {
     // Track which islands have GPU mode active
     this.gpuIslands = new Set();
     this.isGpuGlobal = false; // Whether host requested GPU for all local islands
+    this.onGpuFailure = null; // Callback when local GPU init fails
 
     // Cross-Island Elite Migration state
     this.migrationInterval = config.migrationInterval || 800; // Ticks between automatic migrations
@@ -237,6 +238,12 @@ export class IslandManager {
         break;
       }
 
+      case 'WORKER_LOG': {
+        const lvl = msg.level === 'error' ? 'error' : (msg.level === 'warn' ? 'warn' : 'log');
+        console[lvl](`[Worker ${msg.islandId}]`, msg.message);
+        break;
+      }
+
       case 'GPU_MODE_CHANGED': {
         // Update the tracked state to reflect what the worker actually achieved
         const id = msg.islandId;
@@ -253,10 +260,8 @@ export class IslandManager {
           console.warn(`[IslandManager] GPU init failed for island ${id}, using CPU fallback`);
           if (this.gpuIslands.size === 0) {
             this.isGpuGlobal = false;
-            const btn = (typeof document !== 'undefined') ? document.getElementById('btnToggleGpu') : null;
-            if (btn) {
-              btn.textContent = '⚡ GPU: OFF';
-              btn.classList.remove('gpu-active');
+            if (typeof this.onGpuFailure === 'function') {
+              this.onGpuFailure(id);
             }
           }
         }
@@ -414,6 +419,9 @@ export class IslandManager {
    */
   setAllIslandsGpu(enable) {
     this.isGpuGlobal = Boolean(enable);
+    if (!enable) {
+      this.gpuIslands.clear();
+    }
     for (const id of this.islandIds) {
       this.setIslandGpu(id, enable);
     }

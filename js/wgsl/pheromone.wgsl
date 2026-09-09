@@ -71,7 +71,10 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     count += 1.0;
   }
 
-  let avg = select(current_s, neighbor_sum / count, count > 0.0);
+  var avg = current_s;
+  if (count > 0.0) {
+    avg = neighbor_sum / count;
+  }
   var new_s = (current_s + u.scentDiffusion * (avg - current_s)) * (1.0 - u.scentEvaporation);
   if (new_s < 0.005) {
     new_s = 0.0;

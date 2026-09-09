@@ -131,14 +131,21 @@ export class Simulation {
 
   /**
    * Disable GPU mode and return to CPU environment ticking.
+   * Flushes any in-flight GPU terrain state into grid arrays before tearing down WebGPU.
    */
-  disableGpu() {
+  async disableGpu() {
+    this.gpuInitPending = false;
     if (this.gpuEnvironment) {
-      this.gpuEnvironment.destroy();
+      const env = this.gpuEnvironment;
+      try {
+        await env.syncReadback();
+      } catch (e) {
+        console.warn('[Simulation] Error during GPU syncReadback:', e);
+      }
+      env.destroy();
       this.gpuEnvironment = null;
     }
     this.useGpu = false;
-    this.gpuInitPending = false;
     console.log('[Simulation] Reverted to CPU environment (island', this.islandId, ')');
   }
 
