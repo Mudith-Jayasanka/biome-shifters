@@ -14,7 +14,8 @@ export class FlightRecorder {
       network: true,
       ui: true,
       worker: true,
-      console: true
+      console: true,
+      sim_dynamics: true
     };
 
     // Stored originals for cleanup
@@ -39,7 +40,8 @@ export class FlightRecorder {
       network: true,
       ui: true,
       worker: true,
-      console: true
+      console: true,
+      sim_dynamics: true
     }, options);
 
     this.isRecording = true;
@@ -122,6 +124,14 @@ export class FlightRecorder {
       stack,
       ...extra
     });
+  }
+
+  /**
+   * Record granular simulation dynamics snapshot (action distributions, metabolism, mortality)
+   */
+  recordSimDynamics(payload = {}) {
+    if (!this.isRecording || !this.options.sim_dynamics) return;
+    this.recordEvent('sim_dynamics', 'DYNAMICS_SNAPSHOT', payload);
   }
 
   /**
@@ -319,11 +329,12 @@ export class FlightRecorder {
 
     // Wrap onmessage (Worker -> Main)
     const listener = (e) => {
-      if (self.isRecording && self.options.worker) {
+      if (self.isRecording) {
         const msg = e.data;
         const type = (msg && msg.type) ? msg.type : 'RAW_MSG';
-        // Suppress frame buffers or full telemetry dumps unless relevant
-        if (type !== 'FRAME_DATA') {
+        if (type === 'SIM_DYNAMICS' && self.options.sim_dynamics) {
+          self.recordSimDynamics(msg.payload || msg.data);
+        } else if (self.options.worker && type !== 'FRAME_DATA') {
           self.recordEvent('worker', 'WORKER_RECV', {
             worker: label,
             type,

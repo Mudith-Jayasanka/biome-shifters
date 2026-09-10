@@ -150,6 +150,28 @@ TASK_61 (Flight Recorder Diagnostics System & Trace Analyzer)
 TASK_62 (Fix GPU Toggle Async Race Condition & WebGPU Capability Detection)
    ↓
 TASK_63 (Fix WebGPU Shader NaN Propagation, Readback Queue Saturation, and Terrain State Handover)
+   ↓
+TASK_64 (Fix Heartbeat PerfMode Reconciliation and Turbo Mode Loop Persistence)
+   ↓
+TASK_65 (Fix WebGPU Storage Buffer Limit Request in Device Acquisition)
+   ↓
+Phase 14: Pure WebGPU Simulation Engine
+TASK_66 (WebGPU Agent Buffer Allocation & RNN Brain Inference Compute Pipeline)
+   ↓
+TASK_67 (WebGPU Agent Perception & Sensory Raycasting Compute Pipeline)
+   ↓
+TASK_68 (WebGPU Agent Action Execution & Spatial Collisions Compute Pipeline)
+   ↓
+TASK_69 (WebGPU Agent Lifecycle, Energy Economics & Genetic Pipeline)
+   ↓
+TASK_70 (Closed-Loop VRAM Simulation Engine & Decoupled Pacing)
+   ↓
+Phase 15: Simulation Dynamics & Parity Alignment Loop
+TASK_71 (Simulation Dynamics Parity Tracer & Differential Analyzer)
+   ↓
+TASK_72 (Headless Parity Benchmark & Recursive Alignment Harness)
+   ↓
+TASK_73 (WebGPU Simulation Dynamics Parity Alignment)
 ```
 
 ---
@@ -221,6 +243,16 @@ TASK_63 (Fix WebGPU Shader NaN Propagation, Readback Queue Saturation, and Terra
 | **61** | `TASK_61_flight_recorder_diagnostics_and_analyzer.md` | `js/flight-recorder.js`, `server.py`, `index.html`, `style.css`, `js/main.js`, `scripts/analyze_trace.py` | `DONE` | Build in-app flight recorder, recording popup modal, server trace store, and timeline CLI analyzer. |
 | **62** | `TASK_62_fix_gpu_toggle_race_condition_and_unsupported_state.md` | `js/gpu-environment.js`, `js/main.js`, `js/cluster-client.js`, `js/island-manager.js` | `DONE` | Fix GPU toggle async race condition identified in flight recorder, add in-flight locking, and detect WebGPU capability. |
 | **63** | `TASK_63_fix_webgpu_shader_nan_and_readback_saturation.md` | `js/wgsl/*.wgsl`, `js/gpu-environment.js`, `js/simulation.js`, `js/workers/island.worker.js`, `js/main.js` | `DONE` | Fix WebGPU shader NaN propagation, decouple GPU dispatch/readback cadence, and ensure clean terrain state handover. |
+| **64** | `TASK_64_fix_heartbeat_perfmode_and_turbo_persistence.md` | `server.py`, `js/cluster-client.js`, `js/main.js` | `DONE` | Prevent heartbeat from killing Turbo mode after 2s; sync node perfMode and speed buttons. |
+| **65** | `TASK_65_fix_webgpu_storage_buffer_limit_request.md` | `js/gpu-environment.js` | `DONE` | Request adequate maxStorageBuffersPerShaderStage in requestDevice() to support 10 storage buffers. |
+| **66** | `TASK_66_webgpu_agent_brain_inference.md` | `js/wgsl/agent_brain.wgsl` [NEW], `js/gpu-environment.js` | `DONE` | WebGPU agent buffer allocation & RNN brain inference compute pipeline. |
+| **67** | `TASK_67_webgpu_agent_perception_and_raycasting.md` | `js/wgsl/agent_sense.wgsl` [NEW], `js/gpu-environment.js` | `DONE` | WebGPU agent perception & sensory raycasting compute pipeline. |
+| **68** | `TASK_68_webgpu_agent_action_execution.md` | `js/wgsl/agent_act.wgsl` [NEW], `js/gpu-environment.js` | `DONE` | WebGPU agent action execution & spatial atomic collisions compute pipeline. |
+| **69** | `TASK_69_webgpu_agent_lifecycle_and_genetics.md` | `js/wgsl/agent_lifecycle.wgsl` [NEW], `js/gpu-environment.js` | `DONE` | WebGPU agent lifecycle, energy economics & genetic mutation/crossover pipeline. |
+| **70** | `TASK_70_closed_loop_vram_simulation_and_pacing.md` | `js/gpu-environment.js`, `js/simulation.js`, `js/workers/island.worker.js` | `DONE` | Closed-loop VRAM simulation engine & decoupled Turbo microtask pacing. |
+| **71** | `TASK_71_simulation_dynamics_parity_tracer_and_analyzer.md` | `js/flight-recorder.js`, `js/simulation.js`, `scripts/compare_cpu_gpu.py` [NEW] | `DONE` | Simulation dynamics parity trace category & differential CLI analyzer. |
+| **72** | `TASK_72_headless_parity_benchmark_and_recursive_alignment.md` | `test_parity.html` [NEW], `scripts/run_parity_benchmark.sh` [NEW] | `DONE` | Headless max-speed CPU vs. GPU parity benchmark & recursive alignment harness. |
+| **73** | `TASK_73_webgpu_simulation_dynamics_parity_alignment.md` | `js/wgsl/*.wgsl`, `js/gpu-environment.js`, `test_parity.html` | `DONE` | WebGPU simulation dynamics parity alignment: occupancy indexing, per-tick PRNG advancement, and synchronized snapshot cadence. |
 
 
 

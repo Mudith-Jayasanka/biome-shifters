@@ -178,7 +178,7 @@ export class Agent {
   /**
    * Execute physical action and deduct realistic metabolic energy
    */
-  act(action, grid) {
+  act(action, grid, acc = null) {
     this.lastAction = action;
     let success = 1.0;
 
@@ -188,16 +188,24 @@ export class Agent {
     const effectiveDrain = CONFIG.BASAL_METABOLIC_DRAIN * (1.0 - relief);
     this.energy -= effectiveDrain;
 
+    let exposureDrain = 0;
     // Environmental exposure: hostile coastal perimeter inflicts harsh metabolic drain
     if (grid.isCoastal(this.x, this.y)) {
       this.energy -= CONFIG.COASTAL_EXPOSURE_DRAIN;
+      exposureDrain += CONFIG.COASTAL_EXPOSURE_DRAIN;
     }
 
     // Aquatic submersion exposure: standing in deep standing water causes hypothermia & swimming fatigue
     const currentWater = grid.getWater(this.x, this.y);
     if (currentWater > CONFIG.AQUATIC_SAFE_DEPTH) {
       const submersion = currentWater - CONFIG.AQUATIC_SAFE_DEPTH;
-      this.energy -= submersion * CONFIG.AQUATIC_EXPOSURE_DRAIN;
+      const aquaticDrain = submersion * CONFIG.AQUATIC_EXPOSURE_DRAIN;
+      this.energy -= aquaticDrain;
+      exposureDrain += aquaticDrain;
+    }
+
+    if (acc) {
+      acc.caloriesBurnedMetabolism += effectiveDrain + exposureDrain;
     }
 
     // Stationary soil trampling: lingering or performing in-place actions compacts the earth
@@ -214,6 +222,7 @@ export class Agent {
       case ACTIONS.IDLE: {
         // Rest: minimal energy expenditure
         success = 1.0;
+        if (acc) acc.actions.idle++;
         break;
       }
 
@@ -221,6 +230,7 @@ export class Agent {
       case ACTIONS.MOVE_SOUTH:
       case ACTIONS.MOVE_EAST:
       case ACTIONS.MOVE_WEST: {
+        if (acc) acc.actions.move++;
         let dx = 0, dy = 0, moveDir = 0;
         if (action === ACTIONS.MOVE_NORTH) { dy = -1; moveDir = 0; }
         else if (action === ACTIONS.MOVE_SOUTH) { dy = 1; moveDir = 1; }
@@ -232,7 +242,12 @@ export class Agent {
 
         // Boundary check
         if (!grid.inBounds(targetX, targetY)) {
-          this.energy -= CONFIG.MOVE_ENERGY_BASE * 0.5; // Bump into wall penalty
+          const bumpCost = CONFIG.MOVE_ENERGY_BASE * 0.5;
+          this.energy -= bumpCost; // Bump into wall penalty
+          if (acc) {
+            acc.caloriesBurnedMovement += bumpCost;
+            acc.actions.moveCollisions++;
+          }
           this.lastMoveDir = -1;
           success = 0.0;
           break;
@@ -241,7 +256,12 @@ export class Agent {
         // Occupancy collision check
         const targetOccupant = grid.getOccupant(targetX, targetY);
         if (targetOccupant >= 0 && targetOccupant !== this.id) {
-          this.energy -= CONFIG.MOVE_ENERGY_BASE * 0.5; // Collision penalty
+          const colCost = CONFIG.MOVE_ENERGY_BASE * 0.5;
+          this.energy -= colCost; // Collision penalty
+          if (acc) {
+            acc.caloriesBurnedMovement += colCost;
+            acc.actions.moveCollisions++;
+          }
           this.lastMoveDir = -1;
           success = 0.0;
           break;
@@ -284,6 +304,7 @@ export class Agent {
         }
 
         this.energy -= moveCost;
+        if (acc) acc.caloriesBurnedMovement += moveCost;
 
         // Leave trampled trail on departed cell
         grid.addTrample(this.x, this.y, CONFIG.TRAMPLE_DEPOSIT);
@@ -300,6 +321,7 @@ export class Agent {
       }
 
       case ACTIONS.GRAZE: {
+        if (acc) acc.actions.graze++;
         this.lastMoveDir = -1;
         const curBiomass = grid.getBiomass(this.x, this.y);
         if (curBiomass > 0.02) {
@@ -309,6 +331,7 @@ export class Agent {
           grid.setBiomass(this.x, this.y, curBiomass - biteSize);
           this.energy = Math.min(CONFIG.MAX_ENERGY, this.energy + energyGained);
           this.biomassEaten += biteSize;
+          if (acc) acc.caloriesGainedGraze += energyGained;
 
           // Trace soil fertility depletion: repeated overgrazing exhausts soil nutrients
           const curFert = grid.getFertility(this.x, this.y);
@@ -320,12 +343,14 @@ export class Agent {
         } else {
           // Attempted to graze on barren land
           this.energy -= 0.1;
+          if (acc) acc.actions.grazeFailures++;
           success = 0.0;
         }
         break;
       }
 
       case ACTIONS.DIG_TRENCH: {
+        if (acc) acc.actions.digTrench++;
         this.energy -= CONFIG.TERRAFORM_ENERGY_COST;
         const elev = grid.getElevation(this.x, this.y);
         if (elev > 0.05) {
@@ -342,8 +367,10 @@ export class Agent {
             this.energy = Math.min(CONFIG.MAX_ENERGY, this.energy + rootYield);
             this.rootsHarvested += rootYield;
             this.biomassEaten += (rootYield / CONFIG.GRAZE_MAX_INTAKE);
+            if (acc) acc.caloriesGainedRoots += rootYield;
           }
 
+          this.lastMoveDir = -1;
           success = 1.0;
         } else {
           success = 0.0;
@@ -352,11 +379,13 @@ export class Agent {
       }
 
       case ACTIONS.MOUND_EARTH: {
+        if (acc) acc.actions.moundEarth++;
         const elev = grid.getElevation(this.x, this.y);
         // Agents cannot mound earth beyond hill height into alpine peaks
         if (elev < CONFIG.TERRAFORM_MAX_ELEVATION) {
           this.energy -= CONFIG.TERRAFORM_ENERGY_COST;
           grid.setElevation(this.x, this.y, elev + 0.04);
+          this.lastMoveDir = -1;
           success = 1.0;
         } else {
           // Blocked: cannot mound higher
@@ -367,6 +396,7 @@ export class Agent {
       }
 
       case ACTIONS.EMIT_SCENT: {
+        if (acc) acc.actions.emitScent++;
         this.energy -= CONFIG.SCENT_COST;
         grid.addScent(this.x, this.y, CONFIG.SCENT_DEPOSIT);
         success = 1.0;
@@ -374,6 +404,7 @@ export class Agent {
       }
 
       case ACTIONS.SOW_SEEDS: {
+        if (acc) acc.actions.sowSeeds++;
         this.energy -= CONFIG.SEED_SOW_COST;
         const moist = grid.getMoisture(this.x, this.y);
         const fert = grid.getFertility(this.x, this.y);
@@ -392,6 +423,7 @@ export class Agent {
           this.seedsSown = (this.seedsSown || 0) + 1;
           success = 1.0;
         } else {
+          if (acc) acc.actions.sowFailures++;
           success = 0.0; // Seeds withered or trampled
         }
         break;
@@ -408,7 +440,7 @@ export class Agent {
   /**
    * Main per-tick agent lifecycle update
    */
-  tick(grid) {
+  tick(grid, acc = null) {
     if (this.isDead) return;
 
     this.age++;
@@ -421,10 +453,14 @@ export class Agent {
     const action = this.selectAction(logits);
 
     // 3. Act in the physical world
-    this.act(action, grid);
+    this.act(action, grid, acc);
 
     // 4. Mortality check: starvation or senescence
-    if (this.energy <= 0 || this.age >= CONFIG.MAX_AGE) {
+    if (this.energy <= 0) {
+      if (acc) acc.deathsStarvation++;
+      this.die(grid);
+    } else if (this.age >= CONFIG.MAX_AGE) {
+      if (acc) acc.deathsAge++;
       this.die(grid);
     }
   }
@@ -434,9 +470,10 @@ export class Agent {
    * @param {Grid} grid
    * @param {number} nextAgentId
    * @param {Simulation|null} simulation Optional simulation ref to locate nearby mates
+   * @param {object|null} acc Optional dynamics telemetry accumulator
    * @returns {Agent|null} New child agent or null if reproduction was not possible
    */
-  checkReproduction(grid, nextAgentId, simulation = null) {
+  checkReproduction(grid, nextAgentId, simulation = null, acc = null) {
     if (this.isDead || this.energy < CONFIG.REPRODUCTION_THRESHOLD) {
       return null;
     }
@@ -512,6 +549,7 @@ export class Agent {
 
         // Place on grid
         grid.setOccupant(cx, cy, child.id);
+        if (acc) acc.births++;
         return child;
       }
     }

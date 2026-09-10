@@ -515,6 +515,11 @@ class App {
         this.clusterClient.on('speed_change', ({ speed, isTurbo }) => {
           this.speed = speed;
           this.isTurbo = isTurbo;
+          const speedButtons = document.querySelectorAll('.btn-speed');
+          speedButtons.forEach(btn => {
+            const isMatch = isTurbo ? (btn.dataset.speed === 'turbo') : (parseInt(btn.dataset.speed, 10) === speed);
+            btn.classList.toggle('active', isMatch);
+          });
         });
 
         this.clusterClient.on('island_radiation_change', () => {
@@ -800,7 +805,17 @@ class App {
         if (val === 'turbo') {
           this.isTurbo = true;
           this.speed = 1;
-          if (this.islandManager) this.islandManager.setSpeed(1, true);
+          this.perfMode = 'turbo';
+          if (this.islandManager) {
+            this.islandManager.setPerfMode('turbo');
+            this.islandManager.setSpeed(1, true);
+          }
+          if (this.clusterClient) {
+            this.clusterClient.perfMode = 'turbo';
+            if (this.clusterClient.nodeId) {
+              this.clusterClient.setNodePerf(this.clusterClient.nodeId, 'turbo').catch(() => {});
+            }
+          }
         } else {
           this.isTurbo = false;
           this.speed = parseInt(val, 10) || 1;
@@ -1109,12 +1124,14 @@ class App {
           const chkUi = document.getElementById('chk-rec-ui');
           const chkWorker = document.getElementById('chk-rec-worker');
           const chkConsole = document.getElementById('chk-rec-console');
+          const chkDynamics = document.getElementById('chk-rec-dynamics');
 
           flightRecorder.start({
             network: chkNet ? chkNet.checked : true,
             ui: chkUi ? chkUi.checked : true,
             worker: chkWorker ? chkWorker.checked : true,
-            console: chkConsole ? chkConsole.checked : true
+            console: chkConsole ? chkConsole.checked : true,
+            sim_dynamics: chkDynamics ? chkDynamics.checked : true
           });
         }
       });

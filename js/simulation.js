@@ -85,6 +85,102 @@ export class Simulation {
       isRadiationMode: this.isRadiationMode,
       radiationMultiplier: this.radiationMultiplier
     };
+
+    // Granular Simulation Dynamics Telemetry
+    this.onDynamicsSnapshot = null;
+    this.dynamicsSampleRate = 20;
+    this.dynamicsAccumulator = {
+      births: 0,
+      deathsStarvation: 0,
+      deathsAge: 0,
+      caloriesGainedGraze: 0,
+      caloriesGainedRoots: 0,
+      caloriesBurnedMetabolism: 0,
+      caloriesBurnedMovement: 0,
+      actions: {
+        idle: 0,
+        move: 0,
+        moveCollisions: 0,
+        graze: 0,
+        grazeFailures: 0,
+        digTrench: 0,
+        moundEarth: 0,
+        emitScent: 0,
+        sowSeeds: 0,
+        sowFailures: 0
+      }
+    };
+  }
+
+  resetDynamicsAccumulator() {
+    const acc = this.dynamicsAccumulator;
+    acc.births = 0;
+    acc.deathsStarvation = 0;
+    acc.deathsAge = 0;
+    acc.caloriesGainedGraze = 0;
+    acc.caloriesGainedRoots = 0;
+    acc.caloriesBurnedMetabolism = 0;
+    acc.caloriesBurnedMovement = 0;
+    const act = acc.actions;
+    act.idle = 0;
+    act.move = 0;
+    act.moveCollisions = 0;
+    act.graze = 0;
+    act.grazeFailures = 0;
+    act.digTrench = 0;
+    act.moundEarth = 0;
+    act.emitScent = 0;
+    act.sowSeeds = 0;
+    act.sowFailures = 0;
+  }
+
+  emitDynamicsSnapshot(engine = 'cpu') {
+    if (typeof this.onDynamicsSnapshot !== 'function') return;
+
+    let totalWater = 0;
+    let totalMoisture = 0;
+    const size = this.grid.size;
+    const water = this.grid.water;
+    const moisture = this.grid.moisture;
+    for (let i = 0; i < size; i++) {
+      totalWater += water[i];
+      totalMoisture += moisture[i];
+    }
+
+    const acc = this.dynamicsAccumulator;
+    const snapshot = {
+      engine,
+      tick: this.tickCount,
+      population: this.agents.length,
+      avgEnergy: Math.round(this.stats.avgEnergy * 100) / 100,
+      maxGen: this.stats.generationMax,
+      avgGen: Math.round(this.stats.generationAvg * 100) / 100,
+      totalBiomass: Math.round(this.stats.totalBiomass * 10) / 10,
+      totalWater: Math.round(totalWater * 10) / 10,
+      totalMoisture: Math.round(totalMoisture * 10) / 10,
+      births: acc.births,
+      deathsStarvation: acc.deathsStarvation,
+      deathsAge: acc.deathsAge,
+      caloriesGainedGraze: Math.round(acc.caloriesGainedGraze * 10) / 10,
+      caloriesGainedRoots: Math.round(acc.caloriesGainedRoots * 10) / 10,
+      caloriesBurnedMetabolism: Math.round(acc.caloriesBurnedMetabolism * 10) / 10,
+      caloriesBurnedMovement: Math.round(acc.caloriesBurnedMovement * 10) / 10,
+      actions: {
+        idle: acc.actions.idle,
+        move: acc.actions.move,
+        moveCollisions: acc.actions.moveCollisions,
+        graze: acc.actions.graze,
+        grazeFailures: acc.actions.grazeFailures,
+        digTrench: acc.actions.digTrench,
+        moundEarth: acc.actions.moundEarth,
+        emitScent: acc.actions.emitScent,
+        sowSeeds: acc.actions.sowSeeds,
+        sowFailures: acc.actions.sowFailures
+      }
+    };
+
+    this.onDynamicsSnapshot(snapshot);
+    this.resetDynamicsAccumulator();
   }
 
   /**
@@ -122,16 +218,19 @@ export class Simulation {
       return false;
     }
 
+    // Upload current CPU agent population to GPU VRAM
+    gpuEnv.uploadAgentData(this.agents, this.tickCount);
+
     this.gpuEnvironment = gpuEnv;
     this.useGpu = true;
     this.gpuInitPending = false;
-    console.log('[Simulation] GPU environment active (island', this.islandId, ')');
+    console.log('[Simulation] 100% Closed-loop GPU simulation active (island', this.islandId, ')');
     return true;
   }
 
   /**
    * Disable GPU mode and return to CPU environment ticking.
-   * Flushes any in-flight GPU terrain state into grid arrays before tearing down WebGPU.
+   * Flushes in-flight GPU terrain and agent states into CPU arrays before tearing down WebGPU.
    */
   async disableGpu() {
     this.gpuInitPending = false;
@@ -139,6 +238,36 @@ export class Simulation {
       const env = this.gpuEnvironment;
       try {
         await env.syncReadback();
+        const gpuStates = await env.readAgentStates(env.maxAgents);
+        if (gpuStates && gpuStates.length > 0) {
+          const living = [];
+          for (let i = 0; i < gpuStates.length; i++) {
+            const gs = gpuStates[i];
+            if (gs.alive && gs.energy > 0) {
+              let a = this.agents.find(ag => ag.id === gs.id);
+              if (!a) {
+                a = new Agent(gs.id, gs.x, gs.y);
+              } else {
+                a.x = gs.x;
+                a.y = gs.y;
+              }
+              a.energy = gs.energy;
+              a.age = gs.age;
+              a.generation = gs.generation;
+              a.isDead = false;
+              a.lastAction = gs.lastAction;
+              a.lastActionResult = gs.lastSuccess;
+              a.lastMoveDir = gs.lastMoveDir;
+              a.fitness = gs.fitness;
+              a.seedsSown = gs.seedsSown;
+              a.biomassEaten = gs.biomassEaten;
+              living.push(a);
+            }
+          }
+          if (living.length > 0) {
+            this.agents = living;
+          }
+        }
       } catch (e) {
         console.warn('[Simulation] Error during GPU syncReadback:', e);
       }
@@ -470,14 +599,27 @@ export class Simulation {
   tick() {
     this.tickCount++;
 
-    // 1. Environmental Cellular Automata update (GPU or CPU path)
+    // 1. GPU Path: 100% closed-loop VRAM simulation
     if (this.useGpu && this.gpuEnvironment) {
-      this.gpuEnvironment.tick();
-    } else {
-      this.environment.tick();
+      this.gpuEnvironment.stepSimulation(1, this.isRadiationMode, this);
+
+      // Extinction safety floor check
+      if (this.agents.length < this.minPopulationFloor) {
+        this.reseedFromElites(this.minPopulationFloor);
+        this.gpuEnvironment.uploadAgentData(this.agents, this.tickCount);
+      }
+
+      // Record historical telemetry sample every historySampleRate ticks
+      if (this.tickCount % this.historySampleRate === 0) {
+        this.recordHistorySample();
+      }
+      return;
     }
 
-    // 2. Agents sense, think, act, reproduce, and die
+    // 2. CPU Path: Environmental Cellular Automata update
+    this.environment.tick();
+
+    // 3. Agents sense, think, act, reproduce, and die
     const newChildren = [];
     const livingAgents = [];
 
@@ -486,7 +628,7 @@ export class Simulation {
       if (agent.isDead) continue;
 
       // Agent tick
-      agent.tick(this.grid);
+      agent.tick(this.grid, this.dynamicsAccumulator);
 
       if (agent.isDead) {
         this.recordPotentialElite(agent);
@@ -495,7 +637,7 @@ export class Simulation {
 
       // Check reproduction (passing this for sexual mate lookup)
       if (this.agents.length + newChildren.length < this.maxPopulation) {
-        const child = agent.checkReproduction(this.grid, this.nextAgentId, this);
+        const child = agent.checkReproduction(this.grid, this.nextAgentId, this, this.dynamicsAccumulator);
         if (child) {
           this.nextAgentId++;
           newChildren.push(child);
@@ -525,6 +667,11 @@ export class Simulation {
     // 5. Record historical telemetry sample every 10 ticks
     if (this.tickCount % this.historySampleRate === 0) {
       this.recordHistorySample();
+    }
+
+    // 6. Record dynamics telemetry snapshot every dynamicsSampleRate ticks
+    if (this.tickCount % this.dynamicsSampleRate === 0) {
+      this.emitDynamicsSnapshot('cpu');
     }
   }
 

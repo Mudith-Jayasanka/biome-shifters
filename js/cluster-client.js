@@ -230,11 +230,18 @@ export class ClusterClient {
             this.emit('visibility_change', this.isHidden);
           }
           if (data.nodeState.perfMode && data.nodeState.perfMode !== this.perfMode) {
-            this.perfMode = data.nodeState.perfMode;
-            if (this.islandManager && typeof this.islandManager.setPerfMode === 'function') {
-              this.islandManager.setPerfMode(this.perfMode);
+            // Guard: If we are running in Turbo mode (or globalState.isTurbo is active),
+            // do not allow a stale or default 'standard' perfMode to downgrade and kill Turbo
+            const isTurboActive = Boolean(this.islandManager?.isTurbo || globalState?.isTurbo || this.perfMode === 'turbo');
+            if (isTurboActive && data.nodeState.perfMode === 'standard') {
+              // Maintain Turbo mode; ignore stale heartbeat downgrade
+            } else {
+              this.perfMode = data.nodeState.perfMode;
+              if (this.islandManager && typeof this.islandManager.setPerfMode === 'function') {
+                this.islandManager.setPerfMode(this.perfMode);
+              }
+              this.emit('perf_mode_change', this.perfMode);
             }
-            this.emit('perf_mode_change', this.perfMode);
           }
         }
 

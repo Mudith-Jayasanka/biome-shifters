@@ -163,7 +163,7 @@ class ClusterManager:
             }
 
     @classmethod
-    def register_node(cls, name: str, requested_cores: int, client_ip: str) -> dict:
+    def register_node(cls, name: str, requested_cores: int, client_ip: str, perf_mode: str = None) -> dict:
         with cls._lock:
             cls.init_host()
             cores = max(1, min(16, int(requested_cores)))
@@ -175,6 +175,9 @@ class ClusterManager:
                 clean_name = saved_name
             else:
                 clean_name = re.sub(r"[^\w\s\-\.\(\)']", '', name.strip())[:32] or f"Node-{node_id[-4:]}"
+
+            is_admin_ip = client_ip in ('127.0.0.1', '::1', 'localhost', get_lan_ip()) or client_ip.startswith('127.')
+            chosen_perf = perf_mode if perf_mode in ('eco', 'standard', 'turbo') else ('turbo' if is_admin_ip else 'standard')
 
             # Allocate non-overlapping contiguous island IDs
             start_id = cls.next_island_id
@@ -194,7 +197,7 @@ class ClusterManager:
                 'population': 0,
                 'telemetry': [],
                 'isHidden': False,
-                'perfMode': 'standard'
+                'perfMode': chosen_perf
             }
             cls.nodes[node_id] = node_info
 
@@ -203,7 +206,7 @@ class ClusterManager:
                 'name': clean_name,
                 'islandIds': island_ids,
                 'baseSeed': int(time.time() * 1000) % 10000000,
-                'perfMode': 'standard',
+                'perfMode': chosen_perf,
                 'buildVersion': get_build_version(),
                 'globalState': {
                     'isPaused': cls.is_paused,
@@ -219,6 +222,7 @@ class ClusterManager:
     def heartbeat(cls, node_id: str, telemetry: list = None, tps: int = 0, population: int = 0,
                   name: str = None, cores: int = None, island_ids: list = None, client_ip: str = None) -> dict:
         with cls._lock:
+            cls.init_host()
             now = time.time()
 
             # Reject kicked nodes
@@ -281,6 +285,11 @@ class ClusterManager:
                 node = cls.nodes[node_id]
             else:
                 node = cls.nodes.get(cls.host_node_id, {})
+                node['lastHeartbeat'] = now
+                node['tps'] = int(tps or 0)
+                node['population'] = int(population or 0)
+                if telemetry is not None:
+                    node['telemetry'] = telemetry
 
             # Prune truly dead client nodes (missed heartbeat for > 300s / 5 minutes of total silence)
             stale_ids = []
@@ -462,12 +471,19 @@ class ClusterManager:
     @classmethod
     def update_control(cls, is_paused=None, speed=None, is_turbo=None, tick=None, migration_epoch=None):
         with cls._lock:
+            cls.init_host()
             if is_paused is not None:
                 cls.is_paused = bool(is_paused)
             if speed is not None:
                 cls.speed = int(speed)
             if is_turbo is not None:
                 cls.is_turbo = bool(is_turbo)
+                if cls.is_turbo:
+                    if cls.host_node_id in cls.nodes:
+                        cls.nodes[cls.host_node_id]['perfMode'] = 'turbo'
+                    for nid, n in cls.nodes.items():
+                        if n.get('isHost') or n.get('ip') in ('127.0.0.1', '::1', 'localhost', get_lan_ip()):
+                            n['perfMode'] = 'turbo'
             if tick is not None:
                 cls.tick = int(tick)
             if migration_epoch is not None:
@@ -1025,8 +1041,8 @@ class BiomeShiftersRequestHandler(http.server.SimpleHTTPRequestHandler):
             self._handle_save()
             return
 
-        # Diagnostics trace upload: POST /api/debug/trace
-        if path == '/api/debug/trace' or path == '/api/debug/trace/':
+        # Diagnostics trace upload: POST /api/debug/trace or /api/trace
+        if path in ('/api/debug/trace', '/api/debug/trace/', '/api/trace', '/api/trace/'):
             self._handle_debug_trace()
             return
 
@@ -1137,7 +1153,8 @@ class BiomeShiftersRequestHandler(http.server.SimpleHTTPRequestHandler):
             data = json.loads(body)
             name = data.get('name', 'Guest')
             requested_cores = data.get('requestedCores', 2)
-            reg = ClusterManager.register_node(name, requested_cores, self.client_address[0])
+            perf_mode = data.get('perfMode')
+            reg = ClusterManager.register_node(name, requested_cores, self.client_address[0], perf_mode=perf_mode)
             self._send_json(200, reg)
         except Exception as e:
             self._send_json(500, {'error': f'Failed to join cluster: {str(e)}'})

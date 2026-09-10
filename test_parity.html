@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Biome Shifters — Headless Parity Benchmark</title>
+  <style>
+    body {
+      background: #0d1117;
+      color: #c9d1d9;
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      padding: 24px;
+      margin: 0;
+    }
+    h1 { color: #58a6ff; font-size: 20px; margin-top: 0; }
+    .card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-weight: bold;
+      font-size: 12px;
+    }
+    .badge-running { background: #1f6feb; color: #fff; }
+    .badge-success { background: #238636; color: #fff; }
+    .badge-warning { background: #d29922; color: #000; }
+    .badge-error { background: #da3633; color: #fff; }
+    pre {
+      background: #090d13;
+      border: 1px solid #21262d;
+      border-radius: 4px;
+      padding: 12px;
+      overflow-x: auto;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .metric-box {
+      background: #21262d;
+      padding: 10px;
+      border-radius: 4px;
+      border-left: 3px solid #58a6ff;
+    }
+    .metric-val { font-size: 18px; font-weight: bold; color: #f0f6fc; }
+    .metric-lbl { font-size: 11px; color: #8b949e; text-transform: uppercase; }
+  </style>
+</head>
+<body>
+  <h1>🧬 Biome Shifters — CPU vs GPU Parity Benchmark</h1>
+
+  <div class="card">
+    <div><strong>Status:</strong> <span id="status-badge" class="badge badge-running">INITIALIZING</span></div>
+    <div id="status-message" style="margin-top: 8px; color: #8b949e;">Setting up benchmark environment...</div>
+  </div>
+
+  <div class="card">
+    <div style="font-weight: bold; margin-bottom: 8px;">Run Telemetry</div>
+    <div class="metric-grid">
+      <div class="metric-box">
+        <div class="metric-lbl">Target Ticks</div>
+        <div class="metric-val" id="metric-ticks">0</div>
+      </div>
+      <div class="metric-box">
+        <div class="metric-lbl">Random Seed</div>
+        <div class="metric-val" id="metric-seed">0</div>
+      </div>
+      <div class="metric-box">
+        <div class="metric-lbl">CPU Execution Time</div>
+        <div class="metric-val" id="metric-cpu-time">--</div>
+      </div>
+      <div class="metric-box">
+        <div class="metric-lbl">GPU Execution Time</div>
+        <div class="metric-val" id="metric-gpu-time">--</div>
+      </div>
+      <div class="metric-box">
+        <div class="metric-lbl">Snapshots Captured</div>
+        <div class="metric-val" id="metric-snapshots">0</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="font-weight: bold; margin-bottom: 8px;">Execution Log</div>
+    <pre id="log-output">Starting parity harness...</pre>
+  </div>
+
+  <script type="module">
+    import { Simulation } from './js/simulation.js';
+
+    const logEl = document.getElementById('log-output');
+    const badgeEl = document.getElementById('status-badge');
+    const msgEl = document.getElementById('status-message');
+
+    function log(msg) {
+      console.log(msg);
+      logEl.textContent += '\n' + msg;
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    async function runBenchmark() {
+      const params = new URLSearchParams(window.location.search);
+      const targetTicks = parseInt(params.get('ticks') || '300', 10);
+      const seed = parseInt(params.get('seed') || '1337', 10);
+      const gridDim = parseInt(params.get('dim') || '64', 10);
+      const autoExit = params.get('autoExit') === 'true';
+
+      document.getElementById('metric-ticks').textContent = targetTicks;
+      document.getElementById('metric-seed').textContent = seed;
+
+      const events = [];
+      const startTime = performance.now();
+
+      // ==========================================
+      // Phase 1: CPU Engine
+      // ==========================================
+      badgeEl.className = 'badge badge-running';
+      badgeEl.textContent = 'RUNNING CPU';
+      msgEl.textContent = `Executing ${targetTicks} ticks on CPU engine...`;
+      log(`[Phase 1] Initializing CPU Simulation (dim=${gridDim}x${gridDim}, seed=${seed})...`);
+
+      const cpuSim = new Simulation({
+        width: gridDim,
+        height: gridDim,
+        maxPopulation: 250,
+        minPopulationFloor: 25
+      });
+      cpuSim.initWorld(seed);
+
+      cpuSim.onDynamicsSnapshot = (snapshot) => {
+        events.push({
+          category: 'sim_dynamics',
+          action: 'DYNAMICS_SNAPSHOT',
+          payload: snapshot
+        });
+        document.getElementById('metric-snapshots').textContent = events.length;
+      };
+
+      const cpuStart = performance.now();
+      for (let t = 0; t < targetTicks; t++) {
+        cpuSim.tick();
+      }
+      const cpuDuration = Math.round(performance.now() - cpuStart);
+      document.getElementById('metric-cpu-time').textContent = `${cpuDuration}ms (${Math.round((targetTicks / cpuDuration) * 1000)} TPS)`;
+      log(`[Phase 1] CPU Simulation complete in ${cpuDuration}ms. Living population: ${cpuSim.agents.length}, Biomass: ${Math.round(cpuSim.stats.totalBiomass)}`);
+
+      // ==========================================
+      // Phase 2: WebGPU Engine
+      // ==========================================
+      badgeEl.textContent = 'INITIALIZING GPU';
+      msgEl.textContent = 'Detecting WebGPU adapter and initializing compute pipelines...';
+      log(`[Phase 2] Initializing GPU Simulation (dim=${gridDim}x${gridDim}, seed=${seed})...`);
+
+      const gpuSim = new Simulation({
+        width: gridDim,
+        height: gridDim,
+        maxPopulation: 250,
+        minPopulationFloor: 25
+      });
+      gpuSim.initWorld(seed);
+
+      const gpuAvailable = await gpuSim.enableGpu();
+      let gpuDuration = 0;
+
+      if (!gpuAvailable) {
+        log(`[Phase 2] WARNING: WebGPU is not supported or failed to initialize in this browser context.`);
+        badgeEl.className = 'badge badge-warning';
+        badgeEl.textContent = 'CPU ONLY';
+        msgEl.textContent = 'WebGPU unavailable. Uploading CPU-only baseline trace.';
+      } else {
+        badgeEl.className = 'badge badge-running';
+        badgeEl.textContent = 'RUNNING GPU';
+        msgEl.textContent = `Executing ${targetTicks} ticks on WebGPU engine...`;
+        log(`[Phase 2] WebGPU initialized successfully. Running ${targetTicks} closed-loop ticks in VRAM...`);
+
+        gpuSim.onDynamicsSnapshot = (snapshot) => {
+          events.push({
+            category: 'sim_dynamics',
+            action: 'DYNAMICS_SNAPSHOT',
+            payload: snapshot
+          });
+          document.getElementById('metric-snapshots').textContent = events.length;
+        };
+
+        const gpuStart = performance.now();
+        const batchSize = 20;
+        const batches = Math.ceil(targetTicks / batchSize);
+
+        for (let b = 0; b < batches; b++) {
+          const ticksToRun = Math.min(batchSize, targetTicks - b * batchSize);
+          gpuSim.tickCount += ticksToRun;
+          await gpuSim.gpuEnvironment.stepAndDrain(ticksToRun, false, gpuSim);
+
+          if (gpuSim.agents.length < gpuSim.minPopulationFloor) {
+            gpuSim.reseedFromElites(gpuSim.minPopulationFloor);
+            gpuSim.gpuEnvironment.uploadAgentData(gpuSim.agents, gpuSim.tickCount);
+          }
+        }
+        gpuDuration = Math.round(performance.now() - gpuStart);
+        document.getElementById('metric-gpu-time').textContent = `${gpuDuration}ms (${Math.round((targetTicks / Math.max(1, gpuDuration)) * 1000)} TPS)`;
+        log(`[Phase 2] GPU Simulation complete in ${gpuDuration}ms. Living population: ${gpuSim.agents.length}, Biomass: ${Math.round(gpuSim.stats.totalBiomass)}`);
+        log(`[Debug] GPU sample: ${JSON.stringify(gpuSim.agents.slice(0, 3).map(a => ({ id: a.id, x: a.x, y: a.y, e: Math.round(a.energy), act: a.lastAction, res: a.lastActionResult, bioAtPos: Math.round(gpuSim.grid.getBiomass(a.x, a.y)*100)/100, occAtPos: gpuSim.grid.getOccupant(a.x, a.y) })))}`);
+      }
+
+      // ==========================================
+      // Phase 3: Export and Upload Trace
+      // ==========================================
+      badgeEl.textContent = 'SAVING TRACE';
+      msgEl.textContent = 'Uploading comparative trace to server...';
+
+      const tracePayload = {
+        metadata: {
+          startedAt: new Date(startTime).toISOString(),
+          stoppedAt: new Date().toISOString(),
+          totalDurationMs: Math.round(performance.now() - startTime),
+          targetTicks,
+          seed,
+          cpuDurationMs: cpuDuration,
+          gpuDurationMs: gpuDuration,
+          gpuAvailable,
+          eventCount: events.length,
+          cpuGraze: cpuSim.agents.filter(a => a.lastAction === 5).map(a => ({ id: a.id, x: a.x, y: a.y, res: a.lastActionResult, bio: Math.round(cpuSim.grid.getBiomass(a.x, a.y)*100)/100 })),
+          gpuGraze: gpuSim.agents.filter(a => a.lastAction === 5).map(a => ({ id: a.id, x: a.x, y: a.y, res: a.lastActionResult, bio: Math.round(gpuSim.grid.getBiomass(a.x, a.y)*100)/100, occ: gpuSim.grid.getOccupant(a.x, a.y) }))
+        },
+        events
+      };
+
+      try {
+        const resp = await fetch('/api/debug/trace', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(tracePayload)
+        });
+        const resJson = await resp.json();
+        log(`[Server] Trace successfully saved: ${resJson.filename} (${events.length} events).`);
+        badgeEl.className = 'badge badge-success';
+        badgeEl.textContent = 'COMPLETED';
+        msgEl.innerHTML = `Benchmark finished! Run in terminal: <code>python3 scripts/compare_cpu_gpu.py debug/${resJson.filename}</code>`;
+      } catch (err) {
+        log(`[Server] Failed to upload trace to server: ${err.message}`);
+        badgeEl.className = 'badge badge-error';
+        badgeEl.textContent = 'UPLOAD FAILED';
+        msgEl.textContent = `Error: ${err.message}`;
+      }
+
+      // Signal completion for automated test runners
+      window.__PARITY_BENCHMARK_DONE__ = true;
+      window.__PARITY_BENCHMARK_TRACE__ = tracePayload;
+
+      if (autoExit) {
+        log(`[AutoExit] Benchmark complete. Closing in 2 seconds...`);
+        setTimeout(() => window.close(), 2000);
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      runBenchmark().catch(err => {
+        log(`[Fatal Error] ${err.stack || err.message}`);
+        badgeEl.className = 'badge badge-error';
+        badgeEl.textContent = 'ERROR';
+        msgEl.textContent = err.message;
+      });
+    });
+  </script>
+</body>
+</html>
+

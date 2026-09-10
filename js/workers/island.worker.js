@@ -125,10 +125,17 @@ turboChannel.port1.onmessage = function() {
   }
 
   const batchSize = CONFIG.TURBO_BATCH_SIZE || 50;
-  for (let i = 0; i < batchSize; i++) {
-    if (!isRunning || isPaused || !isTurbo || perfMode !== 'turbo') break;
-    simulation.tick();
-    tickCounter++;
+  if (simulation.useGpu && simulation.gpuEnvironment) {
+    // 100% GPU Closed-Loop batch execution directly in VRAM
+    simulation.gpuEnvironment.stepSimulation(batchSize, simulation.isRadiationMode, simulation);
+    simulation.tickCount += batchSize;
+    tickCounter += batchSize;
+  } else {
+    for (let i = 0; i < batchSize; i++) {
+      if (!isRunning || isPaused || !isTurbo || perfMode !== 'turbo') break;
+      simulation.tick();
+      tickCounter++;
+    }
   }
 
   measureTpsAndSendTelemetry();
@@ -353,6 +360,13 @@ self.onmessage = function (e) {
         maxPopulation: msg.maxPopulation || CONFIG.MAX_POPULATION,
         minPopulationFloor: msg.minPopulationFloor || CONFIG.MIN_POPULATION_FLOOR
       });
+      simulation.onDynamicsSnapshot = (data) => {
+        self.postMessage({
+          type: 'SIM_DYNAMICS',
+          islandId,
+          payload: data
+        });
+      };
       simulation.initWorld(seed);
       if (msg.initialPopulation) {
         // adjust initial population if specified
